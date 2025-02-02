@@ -3,10 +3,10 @@ GCP_PROJECT_ID = 'opensource-observer'       # UPDATE THIS WITH YOUR PROJECT ID
 MODELS = [
     'int_superchain_s7_onchain_metrics_by_project',
     'int_superchain_s7_devtooling_metrics_by_project',
-    # 'int_superchain_s7_onchain_builder_eligibility',
-    # 'int_superchain_s7_onchain_builder_repositories',
-    # 'int_superchain_s7_trusted_developers',
-    # 'int_superchain_s7_project_to_developer_graph',
+    # 'int_superchain_s7_devtooling_repo_eligibility',
+    'int_superchain_s7_onchain_builder_eligibility',
+    'int_superchain_s7_trusted_developers',
+    'int_superchain_s7_project_to_developer_graph',
     # 'int_superchain_s7_project_to_dependency_graph',
     # 'int_superchain_s7_project_to_project_graph'
 ]
