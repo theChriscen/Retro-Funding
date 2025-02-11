@@ -1,5 +1,9 @@
+# ----------------------------------------------------
+# Onchain Builders - Testing
+# ----------------------------------------------------
+
 data_snapshot:
-  date: '20250204'  # Format: YYYYMMDD
+  data_dir: 'eval-algos/S7/data/onchain_testing'
   projects_file: 'projects_v1.csv'
   metrics_file: 'onchain_metrics_by_project.csv'
 
