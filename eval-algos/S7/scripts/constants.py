@@ -10,14 +10,14 @@ PROJECT_ROOT = SCRIPT_DIR.parent
 # Data directories
 DATA_DIR = PROJECT_ROOT / 'data'
 WEIGHTS_DIR = PROJECT_ROOT / 'weights'
-
+RESULTS_DIR = PROJECT_ROOT / 'results'
 # Default paths
 DEFAULT_CONFIG = WEIGHTS_DIR / 'onchain_builders_testing.yaml'
 
 # Ensure required directories exist
 DATA_DIR.mkdir(exist_ok=True)
 WEIGHTS_DIR.mkdir(exist_ok=True)
-
+RESULTS_DIR.mkdir(exist_ok=True)
 def validate_paths() -> None:
     """Validate that all required files and directories exist."""
     required_paths = [

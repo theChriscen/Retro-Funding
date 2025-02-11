@@ -2,6 +2,9 @@ import pandas as pd
 from dataclasses import dataclass
 
 
+BUDGET_TOLERANCE = 1.0 / 1_000_000  # Required precision for budget allocation
+MAX_NORM_ITERATIONS = 100  # Prevent infinite loops
+
 @dataclass
 class AllocationConfig:
     budget: float
@@ -9,31 +12,10 @@ class AllocationConfig:
     max_share_per_project: float
     max_iterations: int = 50
 
-
-def print_results(
-    allocations: pd.Series,
-    config: AllocationConfig
-) -> None:
-    """
-    Prints the results of the allocation.
-    
-    Args:
-        allocations: Series with project names as index and allocations as values
-        config: AllocationConfig with budget and constraint parameters
-    """
-    print("\n=== Final Project Allocations ===")
-    print(allocations.sort_values(ascending=False).head(20))
-    print("\n=== Bottom 10 Projects with Rewards ===")
-    print(allocations[allocations > 0].sort_values().head(10))
-    
-    projects_below_min = (allocations < config.min_amount_per_project).sum()
-    print(f"\nNumber of projects below minimum ({config.min_amount_per_project}): {projects_below_min}")
-    print(f"\nTotal Budget Allocated: {allocations.sum():,.2f} / {config.budget:,.2f}") 
-
-
 def allocate_with_constraints(
     project_scores: pd.Series,
-    config: AllocationConfig
+    config: AllocationConfig,
+    rounding: int = 2,
 ) -> pd.Series:
     """
     Iteratively allocates the budget while enforcing constraints.
@@ -41,6 +23,7 @@ def allocate_with_constraints(
     Args:
         project_scores: Series with project names as index and normalized scores as values (should sum to 1.0)
         config: AllocationConfig with budget and constraint parameters
+        rounding: Number of decimal places to round allocations to
     
     Returns:
         Series with final allocations per project
@@ -106,9 +89,6 @@ def allocate_with_constraints(
             allocations[under_max] += additional
 
     # 5. Final normalization to exactly match budget
-    BUDGET_TOLERANCE = 1.0 / 1_000_000  # Required precision for budget allocation
-    MAX_NORM_ITERATIONS = 100  # Prevent infinite loops
-    
     norm_iteration = 0
     while abs(allocations.sum() - config.budget) > BUDGET_TOLERANCE and norm_iteration < MAX_NORM_ITERATIONS:
         if allocations.sum() > 0:
@@ -117,13 +97,32 @@ def allocate_with_constraints(
             # Clip to ensure we don't exceed max after scaling
             allocations = allocations.clip(upper=max_per_project)
         norm_iteration += 1
-
-    if norm_iteration >= MAX_NORM_ITERATIONS:
-        print(f"\nWarning: Final normalization did not converge after {MAX_NORM_ITERATIONS} iterations")
-        print(f"Budget deviation: {abs(allocations.sum() - config.budget):.6f}")
-
+    
+    allocations = allocations.round(rounding)
     print_results(allocations, config)
     return allocations
+
+
+def print_results(
+    allocations: pd.Series,
+    config: AllocationConfig
+) -> None:
+    """
+    Prints the results of the allocation.
+    
+    Args:
+        allocations: Series with project names as index and allocations as values
+        config: AllocationConfig with budget and constraint parameters
+    """
+    print("\n=== Final Project Allocations ===")
+    print(allocations.sort_values(ascending=False).head(20))
+    print("\n=== Bottom 10 Projects with Rewards ===")
+    print(allocations[allocations > 0].sort_values().head(10))
+    
+    projects_below_min = (allocations < config.min_amount_per_project).sum()
+    print(f"\nNumber of projects below minimum ({config.min_amount_per_project}): {projects_below_min}")
+    print(f"\nTotal Budget Allocated: {allocations.sum():,.0f} / {config.budget:,.0f}") 
+
 
 
 if __name__ == "__main__":
