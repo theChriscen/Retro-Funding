@@ -14,10 +14,10 @@ simulation:
   alpha_package_dependency: 0.5
 
   onchain_project_pretrust_weights:
-    transaction_count_all_levels: 0.2
-    transaction_count_txn_level_only: 0.2
-    gas_fees_all_levels: 0.2
-    gas_fees_txn_level_only: 0.2
+    transaction_count_all_levels: 0.05
+    transaction_count_txn_level_only: 0.35
+    gas_fees_all_levels: 0.05
+    gas_fees_txn_level_only: 0.35
     user_count: 0.1
     bot_filtered_user_count: 0.1
 
@@ -27,14 +27,14 @@ simulation:
 
   link_type_weights:
     package_dependency: 1.0
-    developer_to_repository: 0.5
+    developer_to_repository: 0.25
 
   binary_event_weights:
     FORKED: 1.0
     STARRED: 1.0
   
   total_event_weights:
-    COMMIT_CODE: 1.0
+    COMMIT_CODE: 2.0
     ISSUE_CLOSED: 0.0
     ISSUE_COMMENT: 0.5
     ISSUE_OPENED: 1.0
