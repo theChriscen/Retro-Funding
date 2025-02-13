@@ -13,6 +13,7 @@ google-cloud-bigquery = "^3.18.0"
 db-dtypes = "^1.4.0"
 pyyaml = "^6.0.2"
 networkx = "^3.4.2"
+openrank-sdk = "^0.4.0"
 
 
 [build-system]
