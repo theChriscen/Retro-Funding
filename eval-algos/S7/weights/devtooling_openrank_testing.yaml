@@ -10,8 +10,11 @@ data_snapshot:
   developers_to_repositories: 'developers_to_repositories.csv'
 
 simulation:
-  alpha_developer_to_repository: 0.2
-  alpha_package_dependency: 0.5
+  alpha: 0.2
+    
+  time_decay:
+    commit_to_onchain_repo: 0.5
+    event_to_devtooling_repo: 0.5
 
   onchain_project_pretrust_weights:
     transaction_count_all_levels: 0.05
@@ -26,14 +29,12 @@ simulation:
     NPM: 2.0
 
   link_type_weights:
-    package_dependency: 1.0
-    developer_to_repository: 0.25
+    package_dependency: 2.0
+    developer_to_repository: 1.0
 
-  binary_event_weights:
+  git_event_weights:
     FORKED: 1.0
     STARRED: 1.0
-  
-  total_event_weights:
     COMMIT_CODE: 2.0
     ISSUE_CLOSED: 0.0
     ISSUE_COMMENT: 0.5

@@ -21,6 +21,9 @@ import pandas as pd
 from typing import Dict, Any, Tuple
 import yaml
 
+# Suppress the specific EigenTrust deprecation warning, which isn't supported yet
+import warnings
+warnings.filterwarnings('ignore', message='Defaulting to the \'raw\' score scale*')
 
 @dataclass
 class DataSnapshot:
@@ -32,12 +35,11 @@ class DataSnapshot:
 
 @dataclass
 class SimulationConfig:
-    alpha_developer_to_repository: float
-    alpha_package_dependency: float
+    alpha: float
+    time_decay: Dict[str, float]
     onchain_project_pretrust_weights: Dict[str, float]
     dependency_source_weights: Dict[str, float]
-    binary_event_weights: Dict[str, float]
-    total_event_weights: Dict[str, float]
+    git_event_weights: Dict[str, float]
     link_type_weights: Dict[str, float]
     eligibility_thresholds: Dict[str, int]
 
@@ -82,16 +84,15 @@ class DevtoolingCalculator:
         # 3: Run a single EigenTrust pass on that unified adjacency
         self._run_openrank()
 
-        # 4: Add metrics & metadata
+        # 4: Add metrics & metadata useful for QA and eligibility filters
         self._add_metrics_and_metadata()
 
-        # 5: Normalize & finalize devtooling scores
+        # 5: Filter out non-eligible projects, then normalize into final scores
         self._normalize_scores()
 
         # 6: Serialize final results
         self._serialize_results()
 
-        # 7: Return final analysis
         return self.analysis
 
     # --------------------------------------------------------------------
@@ -100,7 +101,7 @@ class DevtoolingCalculator:
 
     @staticmethod
     def _minmax_scale(values: pd.Series) -> pd.Series:
-        """Min-max scaling of a pandas Series."""
+        """Min-max scaling of a series of values to [0, 1]."""
         vmin, vmax = values.min(), values.max()
         if vmax == vmin:
             # If everything is identical, just return 0.5
@@ -116,7 +117,7 @@ class DevtoolingCalculator:
         df_onchain = self.analysis['onchain_projects'].copy()
         wts = self.config.onchain_project_pretrust_weights
 
-        # Only operate on the columns we have weights for
+        # Only operate on the columns we have weights for in our YAML config
         pretrust_cols = list(wts.keys())
         # Min-max scale each column
         for col in pretrust_cols:
@@ -127,22 +128,21 @@ class DevtoolingCalculator:
                 df_onchain[col] = 0.0
 
         # Weighted sum across all pretrust columns
-        df_onchain['v_raw'] = 0.0
+        df_onchain['v'] = 0.0
         for c in pretrust_cols:
-            df_onchain['v_raw'] += df_onchain[c] * wts[c]
+            df_onchain['v'] += df_onchain[c] * wts[c]
 
         # Normalize so total across all onchain = 1
-        total = df_onchain['v_raw'].sum()
+        total = df_onchain['v'].sum()
         if total > 0:
-            df_onchain['v_raw'] /= total
+            df_onchain['v'] /= total
         else:
             # Edge case: if all zero, just distribute uniformly
-            df_onchain['v_raw'] = 1.0 / len(df_onchain)
+            df_onchain['v'] = 1.0 / len(df_onchain)
 
         # This final 'v' is what we feed as pretrust
         df_onchain = df_onchain.rename(columns={'project_id': 'i'})
-        df_onchain = df_onchain[['i', 'v_raw']].copy()
-        df_onchain.rename(columns={'v_raw': 'v'}, inplace=True)
+        df_onchain = df_onchain[['i', 'v']].copy()
 
         self.analysis['onchain_projects_pretrust_scores'] = df_onchain
 
@@ -153,13 +153,18 @@ class DevtoolingCalculator:
         Tracks 'v_raw' (before scaling) and 'v_final' (after minmax).
         
         Edges:
-          - onchain -> devtooling (package dependency)
-          - onchain -> developer   (optional, if you want to reward devs who built onchain)
-          - developer -> devtooling (the single most valuable event + time decay)
+          - onchain -> devtooling   (onchain projects confer weight to package links)
+          - onchain -> developer    (onchain projects confer weight to their own devs)
+          - developer -> devtooling (git events from onchain devs confer weight to devtooling repos)
         """
-        ###################################################
-        # PART A: onchain->devtooling via package usage
-        ###################################################
+
+        # Time decay settings
+        commit_decay = self.config.time_decay['commit_to_onchain_repo']
+        event_decay = self.config.time_decay['event_to_devtooling_repo']
+
+        #--------------------------------------------------------------------
+        # PART A: onchain -> devtooling via package usage
+        #--------------------------------------------------------------------
         df_pkglinks = self.analysis['package_links'].copy()
         ds_wts = self.config.dependency_source_weights
 
@@ -168,9 +173,7 @@ class DevtoolingCalculator:
             lambda ds: ds_wts.get(ds, 1.0)
         )
 
-        # 2) Group by (onchain_builder_project_id, devtooling_project_id, dependency_artifact_id)
-        # to get sum of the source_wt across that single "repo"
-        # Then sum these repo-level totals across all repos for that pair.
+        # 2) Determine the sum of the source weights for a single devtooling repo
         df_repo_sums = (
             df_pkglinks
             .groupby(['onchain_builder_project_id','devtooling_project_id','dependency_artifact_id'], as_index=False)
@@ -178,6 +181,7 @@ class DevtoolingCalculator:
             .rename(columns={'source_wt':'repo_weight'})
         )
 
+        # 3) Sum the repo-level weights across all devtooling repos for a single onchain project
         df_pair_sums = (
             df_repo_sums
             .groupby(['onchain_builder_project_id','devtooling_project_id'], as_index=False)
@@ -191,100 +195,116 @@ class DevtoolingCalculator:
             'devtooling_project_id': 'j'
         })
 
-        ###################################################
-        # PART B: onchain->developer (optional)
-        ###################################################
+        #--------------------------------------------------------------------
+        # PART B: onchain -> developer via commit events
+        #--------------------------------------------------------------------
+        
+        # Get the last event time for all developers
         df_devrepo = self.analysis['developers_to_repositories'].copy()
+        df_devrepo['first_event'] = pd.to_datetime(df_devrepo['first_event'])
+        df_devrepo['last_event'] = pd.to_datetime(df_devrepo['last_event'])
+        ref_time = df_devrepo['last_event'].max()
 
         # Identify onchain project IDs
         onchain_ids = set(self.analysis['onchain_projects']['project_id'].unique())
-
         df_onchain_dev = df_devrepo[df_devrepo['project_id'].isin(onchain_ids)].copy()
-        df_onchain_dev['last_event'] = pd.to_datetime(df_onchain_dev['last_event'])
 
-        # Time decay reference
-        ref_time = df_onchain_dev['last_event'].max()
+        # Only consider commit events for onchain->developer
+        df_onchain_dev = df_onchain_dev[df_onchain_dev['event_type'] == 'COMMIT_CODE'].copy()
+
+        # Group by developer and project, then get the min/max and total events
+        df_onchain_dev = df_onchain_dev.groupby(['developer_id','project_id'], as_index=False).agg({
+            'first_event': 'min',
+            'last_event': 'max',
+            'total_events': 'sum'
+        })
+
+        # Only consider developers with at least 3 months (90 days) between their first and last commit to a project
+        df_onchain_dev['time_diff'] = df_onchain_dev['last_event'] - df_onchain_dev['first_event']
+        df_onchain_dev = df_onchain_dev[df_onchain_dev['time_diff'] >= pd.Timedelta(days=90)]
+
+        # Weight developers based on the number of events they've had on a log scale
+        df_onchain_dev['base_wt'] = 1 + np.log(df_onchain_dev['total_events'])
+        
+        # Apply a time decay function
         def time_decay(t):
             if pd.isnull(t):
                 return 1.0
-            return 0.5 ** ((ref_time - t).total_seconds() / 31536000)
-
-        # Only consider commits for onchain->developer
-        df_onchain_dev = df_onchain_dev[df_onchain_dev['event_type'] == 'COMMIT_CODE'].copy()
-        df_onchain_dev['base_wt'] = 1 + np.log(df_onchain_dev['total_events'] + 1)
+            return commit_decay ** ((ref_time - t).total_seconds() / 31536000)
         df_onchain_dev['decay'] = df_onchain_dev['last_event'].apply(time_decay)
-        df_onchain_dev['v_calc'] = df_onchain_dev['base_wt'] * df_onchain_dev['decay']
+        df_onchain_dev['v_raw'] = df_onchain_dev['base_wt'] * df_onchain_dev['decay']
 
+        # Get the value v_raw for each developer and project
         df_onchain_devmax = (
             df_onchain_dev
-            .groupby(['project_id','developer_id'], as_index=False)['v_calc'].max()
-            .rename(columns={'project_id':'i','developer_id':'j','v_calc':'v_raw'})
+            .groupby(['project_id','developer_id'], as_index=False)['v_raw'].max()
+            .rename(columns={'project_id':'i','developer_id':'j'})
         )
         df_onchain_devmax['link_type'] = 'onchain_to_developer'
 
-        ###################################################
-        # PART C: developer->devtooling (most valuable event + time decay)
-        ###################################################
+        #--------------------------------------------------------------------
+        # PART C: developer -> devtooling via git events
+        #--------------------------------------------------------------------
+        
+        # Identify devtooling project IDs
         devtool_ids = set(self.analysis['devtooling_projects']['project_id'].unique())
         df_dev2tool = df_devrepo[df_devrepo['project_id'].isin(devtool_ids)].copy()
 
-        # Convert last_event to datetime
-        df_dev2tool['last_event'] = pd.to_datetime(df_dev2tool['last_event'])
+        # Group by developer, project, and event type, then get the min/max and total events
+        df_dev2tool = (
+            df_dev2tool
+            .groupby(['developer_id','project_id','event_type'], as_index=False)
+            .agg({'first_event': 'min', 'last_event': 'max', 'total_events': 'sum'})
+        )
 
+        # Get the weight for each event type
+        git_event_weights = self.config.git_event_weights
+        df_dev2tool['event_wt'] = df_dev2tool['event_type'].apply(
+            lambda evt_type: git_event_weights.get(evt_type, 0.0)
+        )
+
+        # Apply a time decay function
         def time_decay2(t):
             if pd.isnull(t) or pd.isnull(ref_time):
                 return 1.0
-            return 0.5 ** ((ref_time - t).total_seconds() / 31536000)
+            return event_decay ** ((ref_time - t).total_seconds() / 31536000)
+        df_dev2tool['decay'] = df_dev2tool['last_event'].apply(time_decay2)
+        df_dev2tool['base_wt'] = df_dev2tool['event_wt'] * df_dev2tool['decay']
 
-        def event_weight(evt_type, total_evt):
-            # If it's in binary_event_weights, use that
-            if evt_type in self.config.binary_event_weights:
-                return self.config.binary_event_weights[evt_type]
-            # If it's in total_event_weights, do log scale + config weight
-            elif evt_type in self.config.total_event_weights:
-                return (1 + np.log(total_evt + 1)) * self.config.total_event_weights[evt_type]
-            else:
-                return 0.0
-
-        df_dev2tool['time_decay'] = df_dev2tool['last_event'].apply(time_decay2)
-        df_dev2tool['base_wt'] = df_dev2tool.apply(
-            lambda row: event_weight(row['event_type'], row['total_events']),
-            axis=1
-        )
-        df_dev2tool['v_calc'] = df_dev2tool['base_wt'] * df_dev2tool['time_decay']
-
-        df_dev2toolmax = (
+        # Get the value v_raw for each developer and project
+        df_dev2tool_sum = (
             df_dev2tool
-            .groupby(['developer_id','project_id'], as_index=False)['v_calc'].max()
-            .rename(columns={'developer_id':'i','project_id':'j','v_calc':'v_raw'})
+            .groupby(['developer_id','project_id'], as_index=False)['base_wt'].sum()
+            .rename(columns={'developer_id':'i','project_id':'j', 'base_wt':'v_raw'})
         )
-        df_dev2toolmax['link_type'] = 'developer_to_devtool'
+        df_dev2tool_sum['link_type'] = 'developer_to_devtool'
 
-        ###################################################
+        #--------------------------------------------------------------------
         # Combine all edges
-        ###################################################
+        #--------------------------------------------------------------------
+        
+        # Scale the value of v_raw to [0,1] for each edge type
+        df_pair_sums['v_scaled'] = self._minmax_scale(df_pair_sums['v_raw'])
+        df_onchain_devmax['v_scaled'] = self._minmax_scale(df_onchain_devmax['v_raw'])
+        df_dev2tool_sum['v_scaled'] = self._minmax_scale(df_dev2tool_sum['v_raw'])
+        
+        # Combine all edges
+        cols = ['i', 'j', 'link_type', 'v_raw', 'v_scaled']
         df_edges = pd.concat([
-            df_pair_sums[['i','j','link_type','v_raw']],
-            df_onchain_devmax[['i','j','link_type','v_raw']],
-            df_dev2toolmax[['i','j','link_type','v_raw']],
+            df_pair_sums[cols],
+            df_onchain_devmax[cols],
+            df_dev2tool_sum[cols],
         ], ignore_index=True)
 
-        self.analysis['unified_edges'] = df_edges.copy()
-
-        ###################################################
-        # Scale v_raw -> v_final
-        ###################################################
-        df_edges['v_final'] = self._minmax_scale(df_edges['v_raw'])
-
-        # Then multiply by link type weights if desired
+        # Multiply by link type weights
         link_type_wts = self.config.link_type_weights
         df_edges['v_final'] = df_edges.apply(
-            lambda row: row['v_final'] * link_type_wts.get(row['link_type'], 1.0),
+            lambda row: row['v_scaled'] * link_type_wts.get(row['link_type'], 1.0),
             axis=1
         )
 
-        # Store final edges used in EigenTrust
-        self.analysis['unified_edges_final'] = df_edges.copy()
+        # Store final edges to be used in EigenTrust
+        self.analysis['unified_edges'] = df_edges.copy()
 
     def _run_openrank(self) -> None:
         """Run a single EigenTrust pass on the unified edges."""
@@ -293,15 +313,17 @@ class DevtoolingCalculator:
         # Pretrust from onchain projects
         pretrust_scores = self.analysis['onchain_projects_pretrust_scores'].to_dict(orient='records')
 
-        # The final edges we want to feed to EigenTrust
-        df_edges_final = self.analysis['unified_edges_final'].copy()
+        # The edges we want to feed to EigenTrust
+        df_edges = self.analysis['unified_edges'].copy()
+        
+        # Filter out edges with zero or negative weights
+        df_edges = df_edges[df_edges['v_final'] > 0]
 
-        # Typically pick a single alpha. 
-        # We'll use alpha_developer_to_repository for demonstration
-        alpha = self.config.alpha_developer_to_repository
+        # Use the alpha parameter from config
+        alpha = self.config.alpha
 
         # Convert to the format EigenTrust expects: a list of dicts with i, j, v
-        edge_records = df_edges_final.apply(
+        edge_records = df_edges.apply(
             lambda row: {'i': row['i'], 'j': row['j'], 'v': row['v_final']},
             axis=1
         ).tolist()
@@ -366,7 +388,9 @@ class DevtoolingCalculator:
 
         # Merge
         df_results = df_results.merge(df_scores, left_on='project_id', right_on='i', how='left')
-        df_results['v'].fillna(0.0, inplace=True)
+        
+        # Replace NaN values with 0.0 without using inplace
+        df_results['v'] = df_results['v'].fillna(0.0)
 
         # Apply eligibility
         df_results['v_aggregated'] = df_results['v'] * df_results['is_eligible']
@@ -374,7 +398,7 @@ class DevtoolingCalculator:
         # Final normalization across devtooling projects
         total = df_results['v_aggregated'].sum()
         if total > 0:
-            df_results['v_aggregated'] /= total
+            df_results['v_aggregated'] = df_results['v_aggregated'] / total
 
         # Store
         self.analysis['devtooling_project_results'] = df_results
@@ -410,12 +434,11 @@ def load_config(config_path: str) -> Tuple[DataSnapshot, SimulationConfig]:
     # Load simulation config directly from YAML
     sim = ycfg.get('simulation', {})
     sc = SimulationConfig(
-        alpha_developer_to_repository=sim.get('alpha_developer_to_repository', 0.5),
-        alpha_package_dependency=sim.get('alpha_package_dependency', 0.5),
+        alpha=sim.get('alpha', 0.2),
+        time_decay=sim.get('time_decay', {}),
         onchain_project_pretrust_weights=sim.get('onchain_project_pretrust_weights', {}),
         dependency_source_weights=sim.get('dependency_source_weights', {}),
-        binary_event_weights=sim.get('binary_event_weights', {}),
-        total_event_weights=sim.get('total_event_weights', {}),
+        git_event_weights=sim.get('git_event_weights', {}),
         link_type_weights=sim.get('link_type_weights', {}),
         eligibility_thresholds=sim.get('eligibility_thresholds', {})
     )
