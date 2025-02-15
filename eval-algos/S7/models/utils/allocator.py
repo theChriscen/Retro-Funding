@@ -15,6 +15,7 @@ class AllocationConfig:
 def allocate_with_constraints(
     project_scores: pd.Series,
     config: AllocationConfig,
+    print_results: bool = True,
     rounding: int = 2,
 ) -> pd.Series:
     """
@@ -23,6 +24,7 @@ def allocate_with_constraints(
     Args:
         project_scores: Series with project names as index and normalized scores as values (should sum to 1.0)
         config: AllocationConfig with budget and constraint parameters
+        print_results: Whether to print the results
         rounding: Number of decimal places to round allocations to
     
     Returns:
@@ -99,11 +101,12 @@ def allocate_with_constraints(
         norm_iteration += 1
     
     allocations = allocations.round(rounding)
-    print_results(allocations, config)
+    if print_results:
+        print_results_to_terminal(allocations, config)
     return allocations
 
 
-def print_results(
+def print_results_to_terminal(
     allocations: pd.Series,
     config: AllocationConfig
 ) -> None:
@@ -122,37 +125,3 @@ def print_results(
     projects_below_min = (allocations < config.min_amount_per_project).sum()
     print(f"\nNumber of projects below minimum ({config.min_amount_per_project}): {projects_below_min}")
     print(f"\nTotal Budget Allocated: {allocations.sum():,.0f} / {config.budget:,.0f}") 
-
-
-
-if __name__ == "__main__":
-    # Example usage
-    import sys
-    import yaml
-    
-    if len(sys.argv) != 3:
-        print("Usage: python allocator.py <scores_file.csv> <config_file.yaml>")
-        sys.exit(1)
-        
-    scores_file = sys.argv[1]
-    config_file = sys.argv[2]
-    
-    # Load scores
-    scores = pd.read_csv(scores_file, index_col=0).squeeze()
-    
-    # Load config
-    with open(config_file, 'r') as f:
-        yaml_config = yaml.safe_load(f)
-        
-    config = AllocationConfig(
-        budget=yaml_config['allocation']['budget'],
-        min_amount_per_project=yaml_config['allocation']['min_per_project'],
-        max_share_per_project=yaml_config['allocation']['max_share'],
-        max_iterations=yaml_config['allocation'].get('max_iterations', 50)
-    )
-    
-    # Run allocation
-    allocations = allocate_with_constraints(scores, config)
-    
-    # Print results
-    print_results(allocations, config)

@@ -296,6 +296,9 @@ class DevtoolingCalculator:
             df_dev2tool_sum[cols],
         ], ignore_index=True)
 
+        # Filter out self-edges
+        df_edges = df_edges[df_edges['i'] != df_edges['j']]
+
         # Multiply by link type weights
         link_type_wts = self.config.link_type_weights
         df_edges['v_final'] = df_edges.apply(
@@ -308,7 +311,10 @@ class DevtoolingCalculator:
 
     def _run_openrank(self) -> None:
         """Run a single EigenTrust pass on the unified edges."""
-        et = EigenTrust()
+
+        # Use the alpha parameter from config
+        alpha = self.config.alpha
+        et = EigenTrust(alpha=alpha)
 
         # Pretrust from onchain projects
         pretrust_scores = self.analysis['onchain_projects_pretrust_scores'].to_dict(orient='records')
@@ -319,16 +325,13 @@ class DevtoolingCalculator:
         # Filter out edges with zero or negative weights
         df_edges = df_edges[df_edges['v_final'] > 0]
 
-        # Use the alpha parameter from config
-        alpha = self.config.alpha
-
         # Convert to the format EigenTrust expects: a list of dicts with i, j, v
         edge_records = df_edges.apply(
             lambda row: {'i': row['i'], 'j': row['j'], 'v': row['v_final']},
             axis=1
         ).tolist()
 
-        scores = et.run_eigentrust(edge_records, pretrust_scores, alpha=alpha)
+        scores = et.run_eigentrust(edge_records, pretrust_scores)
 
         # Store results as a DataFrame in analysis
         df_scores = pd.DataFrame(scores, columns=['i','v']).set_index('i')
@@ -400,15 +403,64 @@ class DevtoolingCalculator:
         if total > 0:
             df_results['v_aggregated'] = df_results['v_aggregated'] / total
 
-        # Store
         self.analysis['devtooling_project_results'] = df_results
 
     def _serialize_results(self) -> None:
         """
-        Sort devtooling projects by final 'v_aggregated' and store in analysis.
+        Create a simplified graph of onchain projects -> devtooling projects,
+        with edges weighted by the sum of the weights of all edges between them.
         """
-        df = self.analysis['devtooling_project_results'].sort_values(by='v_aggregated', ascending=False)
-        self.analysis['devtooling_project_results'] = df
+        # Get project names and scores
+        onchain_names = self.analysis['onchain_projects'].set_index('project_id')[['display_name']]
+        dt_results = (
+            self.analysis['devtooling_project_results']
+            .set_index('project_id')
+            .loc[lambda df: df['v_aggregated'] > 0, ['display_name', 'v_aggregated']]
+        )
+        
+        # Get edges
+        edges = self.analysis['unified_edges']
+        
+        # Direct package dependency edges
+        direct_edges = (
+            edges.query("link_type=='package_dependency'")
+            [['i', 'j']]
+            .rename(columns={'i': 'onchain_project_id', 'j': 'devtooling_project_id'})
+        )
+
+        # Indirect developer edges 
+        onchain_dev = (
+            edges.query("link_type=='onchain_to_developer'")
+            [['i', 'j']]
+            .rename(columns={'i': 'onchain_project_id', 'j': 'developer_id'})
+        )
+        dev_devtool = (
+            edges.query("link_type=='developer_to_devtool'")
+            [['i', 'j']]
+            .rename(columns={'i': 'developer_id', 'j': 'devtooling_project_id'})
+        )
+        indirect_edges = (
+            onchain_dev.merge(dev_devtool, on='developer_id')
+            [['onchain_project_id', 'devtooling_project_id']]
+        )
+
+        # Combine all edges and merge with project data
+        graph = (
+            pd.concat([direct_edges, indirect_edges])
+            .drop_duplicates()
+            .merge(dt_results, left_on='devtooling_project_id', right_index=True)
+            .rename(columns={'display_name': 'Devtooling Project'})
+            .merge(onchain_names, left_on='onchain_project_id', right_index=True)
+            .rename(columns={'display_name': 'Onchain Project'})
+        )
+
+        # Calculate scores
+        graph['Score'] = (
+            graph.groupby('devtooling_project_id')['v_aggregated'].transform('max')
+            / graph.groupby('devtooling_project_id')['onchain_project_id'].transform('nunique')
+        )
+
+        self.analysis['devtooling_graph'] = graph
 
 
 # ------------------------------------------------------------------------
