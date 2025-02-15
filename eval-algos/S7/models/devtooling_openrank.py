@@ -296,9 +296,6 @@ class DevtoolingCalculator:
             df_dev2tool_sum[cols],
         ], ignore_index=True)
 
-        # Filter out self-edges
-        df_edges = df_edges[df_edges['i'] != df_edges['j']]
-
         # Multiply by link type weights
         link_type_wts = self.config.link_type_weights
         df_edges['v_final'] = df_edges.apply(
@@ -554,7 +551,7 @@ def save_results(analysis: Dict[str, Any]) -> None:
         return
 
     out_path = f"{ds.data_dir}/devtooling_openrank_results.csv"
-    analysis["devtooling_project_results"].to_csv(out_path, index=False)
+    analysis["devtooling_project_results"].sort_values(by='v_aggregated', ascending=False).to_csv(out_path, index=False)
     print(f"Saved devtooling openrank results to {out_path}")
 
 
