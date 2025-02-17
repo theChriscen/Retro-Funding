@@ -31,7 +31,7 @@ Then, from the root directory, run:
 
 ```bash
 python eval-algos/S7/models/onchain_builders.py
-# python eval-algos/S7/models/dev_tooling_pagerank.py
+python eval-algos/S7/models/devtooling_openrank.py
 ```
 
 This will run the allocation pipeline and save the results to the corresponding data directories.
