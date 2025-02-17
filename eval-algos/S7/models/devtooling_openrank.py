@@ -90,6 +90,7 @@ class DevtoolingCalculator:
         self._weight_edges()
         self._apply_eigentrust()
         self._rank_and_evaluate_projects()
+        self._serialize_value_flow()
 
         return self.analysis
 
@@ -442,6 +443,104 @@ class DevtoolingCalculator:
         self.analysis['devtooling_project_results'] = df_results
 
     # --------------------------------------------------------------------
+    # Step 8: Serialize Detailed Graph with Full Relationship Info
+    # --------------------------------------------------------------------
+    def _serialize_value_flow(self) -> None:
+        """
+        Build a final graph that shows value flow between
+        Onchain Projects and Devtooling Projects.
+
+        The output DataFrame will have three columns:
+          - onchain_project_id
+          - devtooling_project_id
+          - contribution
+
+        For each devtooling project, the sum of contributions equals its v_aggregated.
+        For each onchain project, the sum of contributions equals its economic pretrust v.
+        """
+        import warnings  # Ensure warnings is imported
+        
+        # Retrieve necessary DataFrames from the analysis dictionary.
+        edges = self.analysis['weighted_edges']
+        results = self.analysis['devtooling_project_results']
+        onchain_projects = self.analysis['onchain_projects_pretrust_scores']
+
+        # Build mapping from developer -> unique set of onchain projects (from commit events)
+        onchain_projects_by_dev = (
+            edges.query('link_type == "ONCHAIN_PROJECT_TO_DEVELOPER"')
+                 .groupby('j')['i']
+                 .unique()
+                 .to_dict()
+        )
+        
+        # Build a DataFrame for PACKAGE_DEPENDENCY edges (direct mapping).
+        df_pkg = edges.loc[edges['link_type'] == 'PACKAGE_DEPENDENCY', ['i', 'j']].copy()
+
+        # Build a DataFrame for DEVELOPER_TO_DEVTOOLING_PROJECT edges.
+        df_dev = edges.loc[edges['link_type'] == 'DEVELOPER_TO_DEVTOOLING_PROJECT', ['i', 'j']].copy()
+        # For each developer edge, map the developer (i) to its onchain projects.
+        df_dev['onchain_list'] = df_dev['i'].map(lambda d: onchain_projects_by_dev.get(d, []))
+        # Explode the onchain_list column and then keep only that column (renaming it to 'i') and 'j'
+        df_dev_expanded = df_dev.explode('onchain_list')
+        df_dev_expanded = df_dev_expanded[['onchain_list', 'j']].rename(columns={'onchain_list': 'i'})
+        
+        # Concatenate the two DataFrames.
+        graph_df = pd.concat([df_pkg, df_dev_expanded], ignore_index=True)
+        
+        # Build a pivot table of counts (raw connectivity matrix) between onchain and devtooling projects.
+        counts = graph_df.groupby(['i', 'j']).size().reset_index(name='count')
+        pivot = counts.pivot(index='i', columns='j', values='count').fillna(0)
+        onchain_ids = pivot.index.to_numpy()            # Array of onchain project IDs.
+        devtooling_ids = pivot.columns.to_numpy()         # Array of devtooling project IDs.
+        A = pivot.values                                  # Connectivity matrix (n_onchain x n_devtooling).
+
+        # Get target vectors for onchain and devtooling projects.
+        devtooling_project_scores = results.set_index('project_id')['v_aggregated'].to_dict()
+        onchain_project_scores = onchain_projects.set_index('i')['v'].to_dict()
+        v_onchain = np.array([onchain_project_scores.get(i, 0) for i in onchain_ids])
+        v_devtooling = np.array([devtooling_project_scores.get(j, 0) for j in devtooling_ids])
+        
+        # Iterative Proportional Fitting (IPF) to allocate contributions.
+        s = np.ones(len(devtooling_ids))
+        tol = 1e-6
+        max_iter = 1000
+        for _ in range(max_iter):
+            r = v_onchain / (A.dot(s) + 1e-12)
+            s_new = v_devtooling / (A.T.dot(r) + 1e-12)
+            if np.allclose(s_new, s, atol=tol):
+                s = s_new
+                break
+            s = s_new
+        # Compute allocated contributions matrix: X[i, j] = A[i,j] * r_i * s_j.
+        X = A * r[:, np.newaxis] * s[np.newaxis, :]
+        
+        # Extract nonzero contributions using vectorized operations.
+        i_idx, j_idx = np.nonzero(X)
+        contributions = X[i_idx, j_idx]
+        detailed_df = pd.DataFrame({
+            'onchain_project_id': onchain_ids[i_idx],
+            'devtooling_project_id': devtooling_ids[j_idx],
+            'contribution': contributions
+        })
+        
+        # (Optional) Verify that for each devtooling project, contributions sum to its v_aggregated.
+        dev_sum = detailed_df.groupby('devtooling_project_id')['contribution'].sum().round(6)
+        for j in devtooling_ids:
+            target = devtooling_project_scores.get(j, 0)
+            if abs(dev_sum.get(j, 0) - target) > 1e-4:
+                warnings.warn(f"Devtooling project {j} total contribution {dev_sum.get(j, 0)} != target {target}")
+        
+        # (Optional) Verify that for each onchain project, contributions sum to its v.
+        onchain_sum = detailed_df.groupby('onchain_project_id')['contribution'].sum().round(6)
+        for i in onchain_ids:
+            target = onchain_project_scores.get(i, 0)
+            if abs(onchain_sum.get(i, 0) - target) > 1e-4:
+                warnings.warn(f"Onchain project {i} total contribution {onchain_sum.get(i, 0)} != target {target}")
+        
+        # Save the detailed graph to analysis.
+        self.analysis['detailed_value_flow_graph'] = detailed_df
+        
+
     # Helper: MinMax Scaling
     # --------------------------------------------------------------------
     @staticmethod
@@ -554,6 +653,14 @@ def save_results(analysis: Dict[str, Any]) -> None:
     else:
         print("[WARN] No 'detailed_graph' to serialize.")
 
+    # Save value flow data
+    export_path = f"{data_snapshot.data_dir}/value_flow_sankey.csv"
+    detailed_df = analysis.get("detailed_value_flow_graph")
+    if detailed_df is not None:
+        detailed_df.to_csv(export_path, index=False)
+        print(f"[INFO] Saved sankey data to {export_path}")
+    else:
+        print("[WARN] No 'detailed_value_flow_graph' to serialize.")
 
 def main():
     """Run the complete analysis pipeline."""
