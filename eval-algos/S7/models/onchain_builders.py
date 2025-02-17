@@ -22,37 +22,17 @@ import yaml
 
 @dataclass
 class DataSnapshot:
-    data_dir: str = 'eval-algos/S7/data/onchain_testing'
-    projects_file: str = 'projects_v1.csv'
-    metrics_file: str = 'onchain_metrics_by_project.csv'
+    data_dir: str
+    projects_file: str
+    metrics_file: str
 
 @dataclass
 class SimulationConfig:
-    periods: Dict[str, str] = field(default_factory=lambda: {
-        'Dec 2024': 'previous',
-        'Jan 2025': 'current'
-    })
-    metrics: Dict[str, float] = field(default_factory=lambda: {
-        'transaction_count_bot_filtered': 0.30,
-        'monthly_active_farcaster_users': 0.10,
-        'transaction_gas_fee': 0.30,
-        'trace_count': 0.30
-    })
-    chains: Dict[str, float] = field(default_factory=lambda: {
-        'BASE': 1.0,
-        'OPTIMISM': 1.0
-    })
-    metric_variants: Dict[str, float] = field(default_factory=lambda: {
-        'Adoption': 0.20,
-        'Growth': 0.10,
-        'Retention': 0.70
-    })
-    normalization: Dict[str, str] = field(default_factory=lambda: {
-        'method': 'minmax',
-        'robust_scale_limit': 3,
-        'center_value': 0.5
-    })
-
+    periods: Dict[str, str]
+    chains: Dict[str, float]    
+    metrics: Dict[str, float]
+    metric_variants: Dict[str, float]
+    aggregation: Dict[str, str]
 
 class OnchainBuildersCalculator:
     """
@@ -97,6 +77,9 @@ class OnchainBuildersCalculator:
             analysis["weighted_metric_variants"]
         )
 
+        # Step 7: Final weighting and flattening
+        analysis["final_results"] = self._prepare_final_results(analysis)
+
         return analysis
 
     # --------------------------------------------------------------------
@@ -138,64 +121,114 @@ class OnchainBuildersCalculator:
             prev_vals = df[(previous_period, metric)].fillna(0)
 
             variant_scores[(metric, 'Adoption')] = current_vals
-            variant_scores[(metric, 'Growth')] = current_vals - prev_vals
+            variant_scores[(metric, 'Growth')] = (current_vals - prev_vals).clip(lower=0)
             variant_scores[(metric, 'Retention')] = pd.concat([current_vals, prev_vals], axis=1).min(axis=1)
 
         return pd.DataFrame(variant_scores)
 
     def _normalize_metric_variants(self, df: pd.DataFrame) -> pd.DataFrame:
-        """Apply normalization to each metric variant column."""
-        method = self.config.normalization.get('method', 'minmax')
+        """
+        Apply minmax normalization to each metric variant column.
+        TODO: Re-introduce support for other normalization methods.
+        """        
         df_norm = df.copy()
         for col in df_norm.columns:
-            if method == 'minmax':
-                df_norm[col] = self._minmax_scale(df_norm[col].values)
-            elif method == 'robust':
-                df_norm[col] = self._robust_scale(df_norm[col].values)
+            df_norm[col] = self._minmax_scale(df_norm[col].values)
         return df_norm
-
+    
     def _minmax_scale(self, values: np.ndarray) -> np.ndarray:
         """Min-max scaling with fallback to center_value if no range."""
-        C = self.config.normalization.get('center_value', 0.5)
+        center_value = 0.5
         vmin, vmax = np.nanmin(values), np.nanmax(values)
         if vmax == vmin:
-            return np.full_like(values, C)
+            return np.full_like(values, center_value)
         return (values - vmin) / (vmax - vmin)
-
-    def _robust_scale(self, values: np.ndarray) -> np.ndarray:
-        """Robust scaling using IQR, with optional clipping."""
-        C = self.config.normalization.get('center_value', 0.5)
-        lim = self.config.normalization.get('robust_scale_limit', 3)
-        median = np.nanmedian(values)
-        q1, q3 = np.nanpercentile(values, 25), np.nanpercentile(values, 75)
-        iqr = q3 - q1
-        if iqr == 0:
-            return np.full_like(values, C)
-
-        scaled = (values - median) / iqr
-        clipped = np.clip(scaled, -lim, lim)
-        return (clipped + lim) / (2 * lim)
 
     def _apply_weights_to_metric_variants(self, df: pd.DataFrame) -> pd.DataFrame:
         """Multiply metric & variant weights onto normalized data."""
         out = df.copy()
         for metric, m_weight in self.config.metrics.items():
             for variant, v_weight in self.config.metric_variants.items():
-                out[(metric, variant)] *= (m_weight * v_weight)
+                if (metric, variant) in out.columns:
+                    out[(metric, variant)] *= (m_weight * v_weight)
         return out
 
-    def _aggregate_metric_variants(self, df: pd.DataFrame, method: str = 'geometric_mean') -> pd.DataFrame:
-        """Combine variant columns into a single project score (sum or geometric_mean)."""
+    def _aggregate_metric_variants(self, df: pd.DataFrame) -> pd.DataFrame:
+        """
+        Combine weighted, normalized metric variant columns into a single project score.
+        By default, use a weighted power mean aggregator. The parameter 'p' can be tuned.
+        """
+        n = df.shape[1]
         out = df.copy()
-        if method == 'sum':
+    
+        agg_config = getattr(self.config, 'aggregation', {})
+        method = agg_config.get('method', 'power_mean') if isinstance(agg_config, dict) else 'power_mean'
+        p = agg_config.get('p', 2) if isinstance(agg_config, dict) else 2
+        
+        if method == 'power_mean':
+            if p == 0: # geometric mean (not recommended)
+                epsilon = 1e-9
+                out['project_score'] = np.exp(np.log(df + epsilon).mean(axis=1))
+            else: # power mean
+                out['project_score'] = (df.pow(p).sum(axis=1) / n)**(1/p)
+        elif method == 'sum':
             out['project_score'] = df.sum(axis=1)
-        elif method == 'geometric_mean':
-            epsilon = 1e-9
-            out['project_score'] = np.exp(np.log(df + epsilon).mean(axis=1))
         else:
             raise ValueError(f"Invalid aggregation method: {method}")
+
+        return out
+    
+    def _flatten_columns(self, df: pd.DataFrame) -> pd.DataFrame:
+        """
+        Flattens multi-level columns after pivot/weighting.
+        For tuple columns, uses contextual information to produce intuitive names:
+        - For columns from the pivot table (period, metric): "Metric [Period]"
+        - For metric variant columns (metric, variant): "Metric (Variant)"
+        - Otherwise, joins the tuple with a hyphen.
+        """
+        def _flat(col):
+            if isinstance(col, tuple):
+                # If the first element is a period (from the pivot), e.g., "Jan 2025"
+                # Format as: "metric [period]"
+                if col[0] in self.config.periods:
+                    return f"{col[1]} [{col[0]}]"
+                # If the second element is one of our known metric variants
+                # Format as: "metric - variant"
+                elif col[1] in self.config.metric_variants:                    
+                    return f"{col[0]} - {col[1].lower()}_variant"
+                else:
+                    # Fallback: join with a hyphen
+                    return " - ".join(str(x) for x in col)
+            return str(col)
+        out = df.copy()
+        out.columns = [_flat(c) for c in df.columns]
         return out
 
+
+    def _prepare_final_results(
+        self,
+        analysis: Dict[str, pd.DataFrame]
+    ) -> pd.DataFrame:
+        """Prepare final results with normalized scores and flattened columns."""
+        # Calculate normalized scores
+        scores_series = analysis["aggregated_project_scores"]['project_score']
+        normalized_series = scores_series / scores_series.sum()
+        normalized_series.name = 'weighted_score'
+
+        # Flatten pivot tables and combine results
+        df_pivoted_weighted = self._flatten_columns(analysis["pivoted_raw_metrics_weighted_by_chain"])
+        df_variants = self._flatten_columns(analysis["pivoted_metric_variants"])
+        df_weighted_variants = self._flatten_columns(analysis["weighted_metric_variants"])
+
+        final_df = (
+            df_pivoted_weighted
+            .join(df_variants)
+            .join(df_weighted_variants, lsuffix=' - weighted')
+            .join(normalized_series)
+            .sort_values('weighted_score', ascending=False)
+        )
+        
+        return final_df
 
 # ------------------------------------------------------------------------
 # Load config & data
@@ -203,30 +236,29 @@ class OnchainBuildersCalculator:
 
 def load_config(config_path: str) -> Tuple[DataSnapshot, SimulationConfig]:
     """
-    Load configuration from YAML (or default if missing).
+    Load configuration from YAML.
     Returns (DataSnapshot, SimulationConfig).
     """
-    try:
-        with open(config_path, 'r') as f:
-            ycfg = yaml.safe_load(f)
-    except FileNotFoundError:
-        return DataSnapshot(), SimulationConfig()
+    with open(config_path, 'r') as f:
+        ycfg = yaml.safe_load(f)
 
     ds = DataSnapshot(
-        projects_file=ycfg['data_snapshot'].get('projects_file', "projects.csv"),
-        metrics_file=ycfg['data_snapshot'].get('metrics_file', "metrics.csv")
+        data_dir=ycfg['data_snapshot'].get('data_dir', "eval-algos/S7/data/onchain_testing"),
+        projects_file=ycfg['data_snapshot'].get('projects_file', "projects_v1.csv"),
+        metrics_file=ycfg['data_snapshot'].get('metrics_file', "onchain_metrics_by_project.csv")
     )
 
+    # Load simulation config directly from YAML
+    sim = ycfg.get('simulation', {})
     sc = SimulationConfig(
-        periods=ycfg['simulation']['periods'],
-        metrics=ycfg['simulation']['metrics'],
-        chains=ycfg['simulation']['chains'],
-        metric_variants=ycfg['simulation']['metric_variants'],
-        normalization=ycfg['simulation']['normalization']
+        periods=sim.get('periods', {}),
+        chains=sim.get('chains', {}),
+        metrics=sim.get('metrics', {}),
+        metric_variants=sim.get('metric_variants', {}),
+        aggregation=sim.get('aggregation', {})
     )
 
     return ds, sc
-
 
 def load_data(ds: DataSnapshot) -> pd.DataFrame:
     """
@@ -247,18 +279,8 @@ def load_data(ds: DataSnapshot) -> pd.DataFrame:
 # ------------------------------------------------------------------------
 
 def run_simulation(config_path: str) -> Dict[str, Any]:
-    """
-    Orchestrates the entire pipeline:
-
-      1) Instantiate defaults
-      2) load_config
-      3) load_data
-      4) Pre-process & pivot
-      5) Run score calculations
-      6) Assemble 'analysis'
-      7) (Optionally) Save
-      8) Return 'analysis'
-    """
+    
+    # Load config & data
     ds, sim_cfg = load_config(config_path)
     df_data = load_data(ds)
 
@@ -266,40 +288,11 @@ def run_simulation(config_path: str) -> Dict[str, Any]:
     calculator = OnchainBuildersCalculator(sim_cfg)
     analysis = calculator.run_analysis(df_data)
 
-    # Derive final weighting
-    scores_df = analysis['aggregated_project_scores']
-    scores_series = scores_df['project_score']
-    normalized_series = scores_series / scores_series.sum()
-    normalized_series.name = 'Weighted Score'
-
-    # Flatten pivot
-    df_pivoted_weighted = _flatten_columns(analysis['pivoted_raw_metrics_weighted_by_chain'])
-    df_variants = _flatten_columns(analysis['pivoted_metric_variants'])
-
-    final_df = (
-        df_pivoted_weighted
-        .join(df_variants)
-        .join(normalized_series)
-        .sort_values('Weighted Score', ascending=False)
-    )
-    analysis["final_results"] = final_df
-
     # Store config references
     analysis["data_snapshot"] = ds
     analysis["simulation_config"] = sim_cfg
 
     return analysis
-
-
-def _flatten_columns(df: pd.DataFrame) -> pd.DataFrame:
-    """Flattens multi-level columns after pivot/weighting."""
-    def _flat(col):
-        if isinstance(col, tuple):
-            return ": ".join(str(c) for c in col)
-        return str(col)
-    out = df.copy()
-    out.columns = [_flat(c) for c in df.columns]
-    return out
 
 
 # ------------------------------------------------------------------------
