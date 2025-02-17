@@ -75,32 +75,70 @@ The final output is a table showing each project's contributions to the overall 
 
 ## Devtooling
 
-The Devtooling model focuses on open-source development projects, especially developer tools, by looking at how developers interact with them, how tools depend on each other, and how these projects connect to onchain ecosystems. It uses a specialized PageRank approach to highlight which devtools are central and actively maintained.
+The Devtooling model evaluates the value of open-source developer tool projects by quantifying their usefulness to onchain projects. It integrates economic signals from onchain projects, developer contributions, and GitHub activity into a unified trust propagation framework using an EigenTrust algorithm. This model highlights which devtool projects are most central and impactful by considering both direct dependencies and the influence of developer activity.
 
 <details>
 <summary>Steps and Logic</summary>
 
-#### 1. Collect Devtool Data
-Obtain information on repositories, developer contributions (e.g., commits and forks), and links between devtool projects and onchain builder projects.
+#### 1. Data Collection
+- **Gather Data:**  
+  Collect data on:
+  - **Onchain Projects:** Metrics such as transaction counts, gas fees, and user activity.
+  - **Devtooling Projects:** GitHub metrics such as star counts, forks, etc.
+  - **Package Dependencies:** Relationships where onchain projects depend on devtooling projects.
+  - **Developer Contributions:** Commit events and other GitHub engagement data linking developers to projects.
 
-#### 2. Onchain Importance
-Borrow a concept of "onchain importance" from the onchain builders model. Projects with more transactions or users can give higher "trust" to developers who also contribute to devtool projects.
+#### 2. Pretrust Seeding
+- **Onchain Project Pretrust:**  
+  Compute economic pretrust scores for onchain projects by applying a log transformation and min–max scaling to metrics (e.g., transaction counts, gas fees). These scores are combined using configured weights and normalized.
+- **Devtooling Project Pretrust:**  
+  Similarly, compute GitHub-based pretrust scores for devtooling projects using metrics like star count and fork count.
+- **Developer Reputation:**  
+  Distribute onchain project pretrust scores to developers based on their commit activity. The resulting developer reputation is normalized and reflects how much trust developers have earned through their onchain contributions.
 
-#### 3. Developer Mapping
-Identify which developers work on onchain projects, devtool projects, or both. This step helps link devtool projects to their contributors' experience.
+#### 3. Graph Construction
+- **Directed Edges:**  
+  Build an unweighted directed graph with three types of edges:
+  1. **Package Dependency:** Onchain projects → Devtooling projects.
+  2. **Commit Events:** Onchain projects → Developers.
+  3. **GitHub Engagement:** Developers → Devtooling projects.
+- **Duplicate Removal:**  
+  Remove duplicate edges when an onchain project also appears as a devtooling project, ensuring no overcounting of trust contributions.
 
-#### 4. Shared Developer Activity
-If the same developers contribute to an onchain project and a devtool, the devtool is considered more connected and potentially more valuable.
+#### 4. Edge Weighting & Time Decay
+- **Weight Assignment:**  
+  Each edge is weighted based on:
+  - Its link type (e.g., package dependency, commit event, GitHub engagement).
+  - Its event type (e.g., NPM, CARGO, COMMIT_CODE) via configured weights.
+- **Time Decay:**  
+  Apply an exponential decay factor to edges (except static package dependencies) based on the recency of the event. More recent interactions contribute more to the final score.
 
-#### 5. Package Dependencies
-A devtool that multiple onchain projects or other devtools depend on may be more influential. These dependencies create directed edges that feed into the PageRank calculation.
+#### 5. Trust Propagation (EigenTrust)
+- **Combined Pretrust:**  
+  Merge pretrust scores from onchain projects, devtooling projects, and developer reputation to create a unified seed.
+- **EigenTrust Algorithm:**  
+  Run the EigenTrust propagation on the weighted graph to compute final trust (or OpenRank) scores for each node, capturing the overall influence of each project.
 
-#### 6. PageRank Graph
-Build a graph of nodes (onchain and devtool projects), with edges capturing developer overlap, time decay of contributions, and package dependencies. Run a PageRank-like algorithm that uses onchain importance to personalize the ranking of devtool projects.
+#### 6. Ranking & Eligibility
+- **Devtooling Ranking:**  
+  Devtooling projects are ranked based on their final EigenTrust scores.
+- **Eligibility Criteria:**  
+  Projects must meet configured thresholds (e.g., minimum counts of onchain package dependencies or developer links) to be considered eligible.
+- **Normalization:**  
+  The final scores are normalized so that the sum of scores among eligible projects equals 1.
 
-#### 7. Devtool Metrics
-In addition to PageRank scores, gather metrics like the number of commits from onchain-experienced developers, total dev contributors, and how many onchain projects reference a particular devtool.
+#### 7. Value Flow Graph
+- **Detailed Attribution:**  
+  Use an iterative proportional fitting (IPF) procedure to create a detailed value flow graph:
+  - For each devtooling project, the sum of contributions from onchain projects equals its overall score.
+  - For each onchain project, the total contributions equal its economic pretrust.
+- **Visualization:**  
+  The resulting data can be used to generate Sankey diagrams or other visualizations that show how trust flows from onchain projects to devtooling projects.
 
 #### 8. Results
-The final output ranks devtool projects by their overall PageRank score, along with extra metrics for context. This reveals which devtools have high developer engagement, strong connections to key onchain projects, and overall strategic importance.
+- **Final Outputs:**  
+  - A ranked list of devtooling projects with normalized trust scores.
+  - Detailed relationship data capturing the contribution of each onchain project to each devtooling project’s score.
+  - Supplementary metrics (e.g., counts of developer links and package dependencies) providing additional context.
+  
 </details>
