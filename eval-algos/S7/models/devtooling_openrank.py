@@ -557,7 +557,7 @@ def save_results(analysis: Dict[str, Any]) -> None:
 
 def main():
     """Run the complete analysis pipeline."""
-    config_path = 'eval-algos/S7/weights/devtooling_openrank.yaml'
+    config_path = 'eval-algos/S7/weights/devtooling_openrank_testing.yaml'
     try:
         analysis = run_simulation(config_path)
         save_results(analysis)
