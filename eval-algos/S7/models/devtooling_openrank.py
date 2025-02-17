@@ -1,52 +1,51 @@
-"""
-devtooling_openrank.py
-
-Model pipeline:
-
-1) Instantiate dataclasses with defaults
-2) Load YAML config
-3) Load raw data
-4) Pre-process (generate graphs)
-5) Run OpenRank
-6) Add metrics and metadata
-7) Normalize scores
-8) Serialize final results
-9) Return 'analysis'
-"""
-
 from dataclasses import dataclass
 import numpy as np
-from openrank_sdk import EigenTrust
 import pandas as pd
 from typing import Dict, Any, Tuple
 import yaml
-
-# Suppress the specific EigenTrust deprecation warning, which isn't supported yet
 import warnings
+
+from openrank_sdk import EigenTrust
 warnings.filterwarnings('ignore', message='Defaulting to the \'raw\' score scale*')
+
 
 @dataclass
 class DataSnapshot:
     data_dir: str
     onchain_projects_file: str
     devtooling_projects_file: str
-    package_links_file: str
-    developers_to_repositories_file: str
+    project_dependencies_file: str
+    developers_to_projects_file: str
+
 
 @dataclass
 class SimulationConfig:
     alpha: float
     time_decay: Dict[str, float]
     onchain_project_pretrust_weights: Dict[str, float]
-    dependency_source_weights: Dict[str, float]
-    git_event_weights: Dict[str, float]
+    devtooling_project_pretrust_weights: Dict[str, float]
+    event_type_weights: Dict[str, float]
     link_type_weights: Dict[str, float]
     eligibility_thresholds: Dict[str, int]
 
+
 class DevtoolingCalculator:
     """
-    Encapsulates logic for generating OpenRank graphs.
-    Produces an 'analysis' dict of all intermediate DataFrames.
+    Calculates trust scores for devtooling projects based on their relationships with onchain projects.
+    
+    The trust graph reflects the following flow:
+    1. Onchain projects (seeded with economic pretrust) confer trust to:
+       - Devtooling projects directly (via package dependency edges)
+       - Developers (via commit events)
+    2. Developers (seeded with reputation from onchain projects) then
+       confer trust to devtooling projects (via GitHub engagement edges)
+    
+    The final EigenTrust propagation is seeded using a combination of:
+    - Onchain project pretrust
+    - Developer reputation
+    - Devtooling project pretrust
+    
+    This ensures devtooling projects earn value by being useful to onchain projects.
     """
 
     def __init__(self, config: SimulationConfig):
@@ -54,518 +53,518 @@ class DevtoolingCalculator:
         self.analysis = {}
 
     # --------------------------------------------------------------------
-    # Main pipeline
+    # Main pipeline (entry to final 'analysis' outputs)
     # --------------------------------------------------------------------
-
     def run_analysis(
         self,
         df_onchain_projects: pd.DataFrame,
         df_devtooling_projects: pd.DataFrame,
-        df_package_links: pd.DataFrame,
-        df_developers_to_repositories: pd.DataFrame
+        df_project_dependencies: pd.DataFrame,
+        df_developers_to_projects: pd.DataFrame
     ) -> Dict[str, pd.DataFrame]:
         """
-        Main pipeline producing an 'analysis' dictionary with all intermediate steps.
+        Run the complete analysis pipeline to calculate trust scores.
+
+        Args:
+            df_onchain_projects: DataFrame containing onchain project data
+            df_devtooling_projects: DataFrame containing devtooling project data
+            df_project_dependencies: DataFrame containing project dependency relationships
+            df_developers_to_projects: DataFrame containing developer-project relationships
+
+        Returns:
+            Dict[str, pd.DataFrame]: Dictionary containing analysis results and intermediate data
         """
-        # Store raw frames in analysis
+        # Store raw input data frames
         self.analysis = {
             'onchain_projects': df_onchain_projects,
             'devtooling_projects': df_devtooling_projects,
-            'package_links': df_package_links,
-            'developers_to_repositories': df_developers_to_repositories
+            'project_dependencies': df_project_dependencies,
+            'developers_to_projects': df_developers_to_projects
         }
 
-        # 1: Generate onchain pretrust
-        self._generate_onchain_project_pretrust_scores()
-
-        # 2: Build a single, unified edge list (onchain->devtooling, onchain->developer, dev->devtooling)
-        self._build_unified_edge_list()
-
-        # 3: Run a single EigenTrust pass on that unified adjacency
-        self._run_openrank()
-
-        # 4: Add metrics & metadata useful for QA and eligibility filters
-        self._add_metrics_and_metadata()
-
-        # 5: Filter out non-eligible projects, then normalize into final scores
-        self._normalize_scores()
-
-        # 6: Serialize final results
-        self._serialize_results()
+        # Run analysis pipeline steps
+        self._build_unweighted_graph()
+        self._compute_onchain_project_pretrust()
+        self._compute_devtooling_project_pretrust()
+        self._compute_developer_reputation()
+        self._weight_edges()
+        self._apply_eigentrust()
+        self._rank_and_evaluate_projects()
 
         return self.analysis
 
     # --------------------------------------------------------------------
-    # Internal helpers
+    # Step 1: Construct an unweighted graph
     # --------------------------------------------------------------------
-
-    @staticmethod
-    def _minmax_scale(values: pd.Series) -> pd.Series:
-        """Min-max scaling of a series of values to [0, 1]."""
-        vmin, vmax = values.min(), values.max()
-        if vmax == vmin:
-            # If everything is identical, just return 0.5
-            return pd.Series([0.5]*len(values), index=values.index)
-        return (values - vmin) / (vmax - vmin)
-
-    def _generate_onchain_project_pretrust_scores(self) -> None:
+    def _build_unweighted_graph(self) -> None:
         """
-        Generate pretrust vector for onchain projects.
-        We min-max scale each column and then sum them up,
-        then normalize so they sum to 1 across all onchain projects.
+        Build the initial unweighted directed graph with the following edges:
+        1. Package Dependency: Onchain projects → Devtooling projects
+        2. Commit Events: Onchain projects → Developers
+        3. GitHub Engagement: Developers → Devtooling projects
+        
+        Also removes duplicate edges where onchain projects are also devtooling projects.
         """
         df_onchain = self.analysis['onchain_projects'].copy()
+        df_devtooling = self.analysis['devtooling_projects'].copy()
+        df_dependencies = self.analysis['project_dependencies'].copy()
+        df_devs2projects = self.analysis['developers_to_projects'].copy()
+
+        # Create a mapping of project_id to display name (for both onchain and devtooling)
+        project_mapping = {**df_onchain.set_index('project_id')['display_name'].to_dict(),
+                           **df_devtooling.set_index('project_id')['display_name'].to_dict()}
+
+        # Use the most recent event timestamp for decay calculations
+        time_ref = df_devs2projects['event_month'].max()
+
+        # --- Part 1. Package Dependency: Onchain projects → Devtooling projects ---
+        df_dependencies.rename(
+            columns={
+                'onchain_builder_project_id': 'i', 
+                'devtooling_project_id': 'j',
+                'dependency_source': 'event_type'
+            },
+            inplace=True
+        )
+        df_dependencies['event_month'] = time_ref  # Use latest timestamp (no decay for static dependencies)
+        df_dependencies['i_name'] = df_dependencies['i'].map(project_mapping)
+        df_dependencies['j_name'] = df_dependencies['j'].map(project_mapping)
+        df_dependencies['link_type'] = 'PACKAGE_DEPENDENCY'
+        
+        # --- Part 2. Commit Events: Onchain projects → Developers ---
+        df_devs2onchain = df_devs2projects[
+            (df_devs2projects['project_id'].isin(df_onchain['project_id'])) &
+            (df_devs2projects['event_type'] == 'COMMIT_CODE')
+        ].copy()
+        df_devs2onchain.rename(
+            columns={
+                'project_id': 'i',       # onchain project as source
+                'developer_id': 'j',     # developer as target
+                'developer_name': 'j_name'
+            },
+            inplace=True
+        )
+        df_devs2onchain['i_name'] = df_devs2onchain['i'].map(project_mapping)
+        df_devs2onchain['link_type'] = 'ONCHAIN_PROJECT_TO_DEVELOPER'
+        
+        # --- Part 3. GitHub Engagement: Developers → Devtooling projects ---
+        df_devs2tool = df_devs2projects[
+            (df_devs2projects['project_id'].isin(df_devtooling['project_id']))
+        ].copy()
+        df_devs2tool.rename(
+            columns={
+                'developer_id': 'i',      # developer as source
+                'project_id': 'j',        # devtooling project as target
+                'developer_name': 'i_name'
+            },
+            inplace=True
+        )
+        df_devs2tool['j_name'] = df_devs2tool['j'].map(project_mapping)
+        df_devs2tool['link_type'] = 'DEVELOPER_TO_DEVTOOLING_PROJECT'
+        
+        # --- Part 4. Remove duplicate edges if a developer's onchain project is also the devtooling project ---
+        # (This prevents projects that are both onchain and devtooling from receiving extra weight.)
+        onchain_devs_project_mapping = df_devs2onchain.set_index('j')['i'].to_dict()
+        df_devs2tool['is_duplicate'] = df_devs2tool.apply(
+            lambda row: row['i'] in onchain_devs_project_mapping and 
+                        onchain_devs_project_mapping[row['i']] == row['j'], 
+            axis=1
+        )
+        df_devs2tool = df_devs2tool[~df_devs2tool['is_duplicate']]
+        df_devs2tool.drop(columns=['is_duplicate'], inplace=True)
+        
+        # --- Combine all edges ---
+        df_dependencies['link_type'] = 'PACKAGE_DEPENDENCY'
+        df_devs2onchain['link_type'] = 'ONCHAIN_PROJECT_TO_DEVELOPER'
+        df_devs2tool['link_type'] = 'DEVELOPER_TO_DEVTOOLING_PROJECT'
+        df_combined = pd.concat([
+            df_dependencies,
+            df_devs2onchain,
+            df_devs2tool
+        ], ignore_index=True)
+        cols = ['i', 'j', 'i_name', 'j_name', 'link_type', 'event_type', 'event_month']
+        self.analysis['unweighted_edges'] = df_combined[cols]
+
+    # --------------------------------------------------------------------
+    # Step 2: Seed onchain projects with economic pretrust
+    # --------------------------------------------------------------------
+    def _compute_onchain_project_pretrust(self) -> None:
+        """
+        Calculate pretrust scores for onchain projects based on economic metrics.
+
+        Uses log scaling and minmax normalization for each metric, then combines them
+        using configured weights.
+        Results are stored in analysis['onchain_projects_pretrust_scores'].
+        """
+        df_onchain = self.analysis['onchain_projects'].copy()
+        df_onchain.rename(columns={'project_id': 'i'}, inplace=True)
         wts = self.config.onchain_project_pretrust_weights
-
-        # Only operate on the columns we have weights for in our YAML config
-        pretrust_cols = list(wts.keys())
-        # Min-max scale each column
-        for col in pretrust_cols:
-            if col in df_onchain.columns:
-                df_onchain[col] = self._minmax_scale(df_onchain[col])
-            else:
-                # If the column doesn't exist, fill with 0
-                df_onchain[col] = 0.0
-
-        # Weighted sum across all pretrust columns
         df_onchain['v'] = 0.0
-        for c in pretrust_cols:
-            df_onchain['v'] += df_onchain[c] * wts[c]
-
-        # Normalize so total across all onchain = 1
-        total = df_onchain['v'].sum()
-        if total > 0:
-            df_onchain['v'] /= total
-        else:
-            # Edge case: if all zero, just distribute uniformly
-            df_onchain['v'] = 1.0 / len(df_onchain)
-
-        # This final 'v' is what we feed as pretrust
-        df_onchain = df_onchain.rename(columns={'project_id': 'i'})
-        df_onchain = df_onchain[['i', 'v']].copy()
-
+        for col, weight in wts.items():
+            if col in df_onchain.columns:
+                # Use log scaling then minmax normalization per metric
+                df_onchain[col] = self._minmax_scale(np.log1p(df_onchain[col]))
+                df_onchain['v'] += df_onchain[col] * weight
+        onchain_total = df_onchain['v'].sum()
+        df_onchain['v'] /= onchain_total
         self.analysis['onchain_projects_pretrust_scores'] = df_onchain
 
-    def _build_unified_edge_list(self) -> None:
+    # --------------------------------------------------------------------
+    # Step 3: Seed devtooling projects with GitHub pretrust
+    # --------------------------------------------------------------------
+    def _compute_devtooling_project_pretrust(self) -> None:
         """
-        Build a single DataFrame of edges with columns:
-        [i, j, link_type, v_raw, v_final]
-        Tracks 'v_raw' (before scaling) and 'v_final' (after minmax).
+        Calculate pretrust scores for devtooling projects based on GitHub metrics.
         
-        Edges:
-          - onchain -> devtooling   (onchain projects confer weight to package links)
-          - onchain -> developer    (onchain projects confer weight to their own devs)
-          - developer -> devtooling (git events from onchain devs confer weight to devtooling repos)
+        Uses log scaling and minmax normalization for each metric, then combines them
+        using configured weights.
+        Results are stored in analysis['devtooling_projects_pretrust_scores'].
         """
+        df_devtooling = self.analysis['devtooling_projects'].copy()
+        df_devtooling.rename(columns={'project_id': 'i'}, inplace=True)
+        wts = self.config.devtooling_project_pretrust_weights
+        df_devtooling['v'] = 0.0
+        for col, weight in wts.items():
+            if col in df_devtooling.columns:
+                df_devtooling[col] = self._minmax_scale(np.log1p(df_devtooling[col]))
+                df_devtooling['v'] += df_devtooling[col] * weight
+        devtooling_total = df_devtooling['v'].sum()
+        df_devtooling['v'] /= devtooling_total
+        self.analysis['devtooling_projects_pretrust_scores'] = df_devtooling
 
-        # Time decay settings
-        commit_decay = self.config.time_decay['commit_to_onchain_repo']
-        event_decay = self.config.time_decay['event_to_devtooling_repo']
-
-        #--------------------------------------------------------------------
-        # PART A: onchain -> devtooling via package usage
-        #--------------------------------------------------------------------
-        df_pkglinks = self.analysis['package_links'].copy()
-        ds_wts = self.config.dependency_source_weights
-
-        # 1) Map each row's dependency_source to a weight (fallback = 1.0 if not found)
-        df_pkglinks['source_wt'] = df_pkglinks['dependency_source'].apply(
-            lambda ds: ds_wts.get(ds, 1.0)
-        )
-
-        # 2) Determine the sum of the source weights for a single devtooling repo
-        df_repo_sums = (
-            df_pkglinks
-            .groupby(['onchain_builder_project_id','devtooling_project_id','dependency_artifact_id'], as_index=False)
-            .agg({'source_wt':'sum'})  # sum of source weights in that single repo
-            .rename(columns={'source_wt':'repo_weight'})
-        )
-
-        # 3) Sum the repo-level weights across all devtooling repos for a single onchain project
-        df_pair_sums = (
-            df_repo_sums
-            .groupby(['onchain_builder_project_id','devtooling_project_id'], as_index=False)
-            .agg({'repo_weight':'sum'})
-            .rename(columns={'repo_weight':'v_raw'})
-        )
-
-        df_pair_sums['link_type'] = 'package_dependency'
-        df_pair_sums = df_pair_sums.rename(columns={
-            'onchain_builder_project_id': 'i',
-            'devtooling_project_id': 'j'
-        })
-
-        #--------------------------------------------------------------------
-        # PART B: onchain -> developer via commit events
-        #--------------------------------------------------------------------
+    # --------------------------------------------------------------------
+    # Step 4: Compute developer reputation from onchain projects
+    # --------------------------------------------------------------------
+    def _compute_developer_reputation(self) -> None:
+        """
+        Calculate developer reputation scores based on their contributions to onchain projects.
         
-        # Get the last event time for all developers
-        df_devrepo = self.analysis['developers_to_repositories'].copy()
-        df_devrepo['first_event'] = pd.to_datetime(df_devrepo['first_event'])
-        df_devrepo['last_event'] = pd.to_datetime(df_devrepo['last_event'])
-        ref_time = df_devrepo['last_event'].max()
+        Distributes onchain project trust to developers based on commit history.
+        Results are stored in analysis['developer_reputation'].
+        """
+        project_reputation = (
+            self.analysis['onchain_projects_pretrust_scores']
+            .set_index('i')['v']
+            .to_dict()
+        )
+        # Use commit events (onchain → developer) to distribute onchain trust
+        commit_history = (
+            self.analysis['unweighted_edges']
+            .query('link_type == "ONCHAIN_PROJECT_TO_DEVELOPER"')
+            .groupby(['event_month', 'j'])
+            .i.unique()
+        )
+        reputation = {}
+        for (event_month, developer), onchain_projects in commit_history.items():
+            value = 0.0
+            for src_project in onchain_projects:
+                value += project_reputation.get(src_project, 0)
+            if not len(onchain_projects):
+                continue
+            share = value / len(onchain_projects)
+            reputation[developer] = reputation.get(developer, 0) + share
 
-        # Identify onchain project IDs
-        onchain_ids = set(self.analysis['onchain_projects']['project_id'].unique())
-        df_onchain_dev = df_devrepo[df_devrepo['project_id'].isin(onchain_ids)].copy()
-
-        # Only consider commit events for onchain->developer
-        df_onchain_dev = df_onchain_dev[df_onchain_dev['event_type'] == 'COMMIT_CODE'].copy()
-
-        # Group by developer and project, then get the min/max and total events
-        df_onchain_dev = df_onchain_dev.groupby(['developer_id','project_id'], as_index=False).agg({
-            'first_event': 'min',
-            'last_event': 'max',
-            'total_events': 'sum'
-        })
-
-        # Only consider developers with at least 3 months (90 days) between their first and last commit to a project
-        df_onchain_dev['time_diff'] = df_onchain_dev['last_event'] - df_onchain_dev['first_event']
-        df_onchain_dev = df_onchain_dev[df_onchain_dev['time_diff'] >= pd.Timedelta(days=90)]
-
-        # Weight developers based on the number of events they've had on a log scale
-        df_onchain_dev['base_wt'] = 1 + np.log(df_onchain_dev['total_events'])
+        df_dev_reputation = pd.DataFrame(
+            {'developer_id': list(reputation.keys()),
+             'reputation': list(reputation.values())}
+        )
+        dev_names = self.analysis['developers_to_projects'].set_index('developer_id')['developer_name'].to_dict()
+        df_dev_reputation['developer_name'] = df_dev_reputation['developer_id'].map(dev_names)
         
-        # Apply a time decay function
-        def time_decay(t):
-            if pd.isnull(t):
-                return 1.0
-            return commit_decay ** ((ref_time - t).total_seconds() / 31536000)
-        df_onchain_dev['decay'] = df_onchain_dev['last_event'].apply(time_decay)
-        df_onchain_dev['v_raw'] = df_onchain_dev['base_wt'] * df_onchain_dev['decay']
+        # Normalize the developer reputation scores
+        df_dev_reputation['reputation'] = self._minmax_scale(df_dev_reputation['reputation'])
 
-        # Get the value v_raw for each developer and project
-        df_onchain_devmax = (
-            df_onchain_dev
-            .groupby(['project_id','developer_id'], as_index=False)['v_raw'].max()
-            .rename(columns={'project_id':'i','developer_id':'j'})
-        )
-        df_onchain_devmax['link_type'] = 'onchain_to_developer'
+        self.analysis['developer_reputation'] = df_dev_reputation
 
-        #--------------------------------------------------------------------
-        # PART C: developer -> devtooling via git events
-        #--------------------------------------------------------------------
+    # --------------------------------------------------------------------
+    # Step 5: Weight edges (including time decay)
+    # --------------------------------------------------------------------
+    def _weight_edges(self) -> None:
+        """
+        Apply weights and time decay to graph edges.
         
-        # Identify devtooling project IDs
-        devtool_ids = set(self.analysis['devtooling_projects']['project_id'].unique())
-        df_dev2tool = df_devrepo[df_devrepo['project_id'].isin(devtool_ids)].copy()
-
-        # Group by developer, project, and event type, then get the min/max and total events
-        df_dev2tool = (
-            df_dev2tool
-            .groupby(['developer_id','project_id','event_type'], as_index=False)
-            .agg({'first_event': 'min', 'last_event': 'max', 'total_events': 'sum'})
-        )
-
-        # Get the weight for each event type
-        git_event_weights = self.config.git_event_weights
-        df_dev2tool['event_wt'] = df_dev2tool['event_type'].apply(
-            lambda evt_type: git_event_weights.get(evt_type, 0.0)
-        )
-
-        # Apply a time decay function
-        def time_decay2(t):
-            if pd.isnull(t) or pd.isnull(ref_time):
-                return 1.0
-            return event_decay ** ((ref_time - t).total_seconds() / 31536000)
-        df_dev2tool['decay'] = df_dev2tool['last_event'].apply(time_decay2)
-        df_dev2tool['base_wt'] = df_dev2tool['event_wt'] * df_dev2tool['decay']
-
-        # Get the value v_raw for each developer and project
-        df_dev2tool_sum = (
-            df_dev2tool
-            .groupby(['developer_id','project_id'], as_index=False)['base_wt'].sum()
-            .rename(columns={'developer_id':'i','project_id':'j', 'base_wt':'v_raw'})
-        )
-        df_dev2tool_sum['link_type'] = 'developer_to_devtool'
-
-        #--------------------------------------------------------------------
-        # Combine all edges
-        #--------------------------------------------------------------------
+        Weights are applied based on:
+        - Time decay (more recent events have higher weight)
+        - Link type weights from config
+        - Event type weights from config
         
-        # Scale the value of v_raw to [0,1] for each edge type
-        df_pair_sums['v_scaled'] = self._minmax_scale(df_pair_sums['v_raw'])
-        df_onchain_devmax['v_scaled'] = self._minmax_scale(df_onchain_devmax['v_raw'])
-        df_dev2tool_sum['v_scaled'] = self._minmax_scale(df_dev2tool_sum['v_raw'])
+        Results are stored in analysis['weighted_edges'].
+        """
+        df_edges = self.analysis['unweighted_edges'].copy()
+
+        # Calculate time decay based on event recency
+        time_ref = df_edges['event_month'].max()    
+        time_diff_years = (time_ref - df_edges['event_month']).dt.days / 365.0
         
-        # Combine all edges
-        cols = ['i', 'j', 'link_type', 'v_raw', 'v_scaled']
-        df_edges = pd.concat([
-            df_pair_sums[cols],
-            df_onchain_devmax[cols],
-            df_dev2tool_sum[cols],
-        ], ignore_index=True)
+        # Default decay is 1 (no decay)
+        df_edges['v_decay'] = 1.0  
 
-        # Multiply by link type weights
-        link_type_wts = self.config.link_type_weights
-        df_edges['v_final'] = df_edges.apply(
-            lambda row: row['v_scaled'] * link_type_wts.get(row['link_type'], 1.0),
-            axis=1
-        )
+        # Apply decay for onchain project → developer links
+        mask_onchain = df_edges['link_type'] == 'ONCHAIN_PROJECT_TO_DEVELOPER'
+        if mask_onchain.any():
+            decay_factor = self.config.time_decay.get('commit_to_onchain_repo', 1.0)
+            df_edges.loc[mask_onchain, 'v_decay'] = np.exp(-decay_factor * time_diff_years[mask_onchain])
+            
+        # Apply decay for developer → devtooling links
+        mask_devtool = df_edges['link_type'] == 'DEVELOPER_TO_DEVTOOLING_PROJECT'
+        if mask_devtool.any():
+            decay_factor = self.config.time_decay.get('event_to_devtooling_repo', 1.0)
+            df_edges.loc[mask_devtool, 'v_decay'] = np.exp(-decay_factor * time_diff_years[mask_devtool])
+            
+        # Weight edges by link type and event type
+        df_edges['v_linktype'] = df_edges['link_type'].map(self.config.link_type_weights)
+        df_edges['v_eventtype'] = df_edges['event_type'].map(self.config.event_type_weights)
+        df_edges['v_final'] = df_edges['v_decay'] * df_edges['v_linktype'] * df_edges['v_eventtype']
+        self.analysis['weighted_edges'] = df_edges
 
-        # Store final edges to be used in EigenTrust
-        self.analysis['unified_edges'] = df_edges.copy()
-
-    def _run_openrank(self) -> None:
-        """Run a single EigenTrust pass on the unified edges."""
-
-        # Use the alpha parameter from config
+    # --------------------------------------------------------------------
+    # Step 6: Apply EigenTrust to the weighted graph using combined pretrust scores
+    # --------------------------------------------------------------------
+    def _apply_eigentrust(self) -> None:
+        """
+        Apply EigenTrust algorithm to the weighted graph.
+        
+        Combines pretrust scores from:
+        - Onchain projects
+        - Devtooling projects
+        - Developer reputation
+        
+        Results are stored in analysis['project_openrank_scores'].
+        
+        Raises:
+            ValueError: If no edge records or pretrust scores are found.
+        """
         alpha = self.config.alpha
         et = EigenTrust(alpha=alpha)
-
-        # Pretrust from onchain projects
-        pretrust_scores = self.analysis['onchain_projects_pretrust_scores'].to_dict(orient='records')
-
-        # The edges we want to feed to EigenTrust
-        df_edges = self.analysis['unified_edges'].copy()
         
-        # Filter out edges with zero or negative weights
+        # Combine pretrust scores from all sources
+        pretrust_list = []
+        
+        # Add onchain projects pretrust
+        onchain = self.analysis.get('onchain_projects_pretrust_scores', pd.DataFrame())
+        if not onchain.empty:
+            pretrust_list.extend(
+                {'i': row['i'], 'v': row['v']}
+                for _, row in onchain.iterrows()
+                if row['v'] > 0
+            )
+        
+        # Add devtooling projects pretrust
+        devtooling = self.analysis.get('devtooling_projects_pretrust_scores', pd.DataFrame())
+        if not devtooling.empty:
+            pretrust_list.extend(
+                {'i': row['i'], 'v': row['v']}
+                for _, row in devtooling.iterrows()
+                if row['v'] > 0
+            )
+        
+        # Add developer reputation
+        developers = self.analysis.get('developer_reputation', pd.DataFrame())
+        if not developers.empty:
+            pretrust_list.extend(
+                {'i': row['developer_id'], 'v': row['reputation']}
+                for _, row in developers.iterrows()
+                if row['reputation'] > 0
+            )
+        
+        # Format edge records
+        df_edges = self.analysis['weighted_edges'].copy()
         df_edges = df_edges[df_edges['v_final'] > 0]
-
-        # Convert to the format EigenTrust expects: a list of dicts with i, j, v
-        edge_records = df_edges.apply(
-            lambda row: {'i': row['i'], 'j': row['j'], 'v': row['v_final']},
-            axis=1
-        ).tolist()
-
-        scores = et.run_eigentrust(edge_records, pretrust_scores)
-
-        # Store results as a DataFrame in analysis
-        df_scores = pd.DataFrame(scores, columns=['i','v']).set_index('i')
+        edge_records = [
+            {'i': row['i'], 'j': row['j'], 'v': row['v_final']}
+            for _, row in df_edges.iterrows()
+        ]
+        
+        if not edge_records:
+            raise ValueError("No edge records found - check if v_final values are all 0 or if weighted_edges is empty")
+        if not pretrust_list:
+            raise ValueError("No pretrust scores found - check computed pretrust scores")
+        
+        # Run EigenTrust propagation
+        scores = et.run_eigentrust(edge_records, pretrust_list)
+        df_scores = pd.DataFrame(scores, columns=['i', 'v']).set_index('i')
         self.analysis['project_openrank_scores'] = df_scores
 
-    def _add_metrics_and_metadata(self) -> None:
+    # --------------------------------------------------------------------
+    # Step 7: Rank and Evaluate Devtooling Projects
+    # --------------------------------------------------------------------
+    def _rank_and_evaluate_projects(self) -> None:
         """
-        Add existing analytics/metrics for devtooling projects, e.g. 
-        num_projects_with_package_links, etc.
+        Rank and evaluate devtooling projects based on computed scores.
+        
+        Projects are evaluated based on:
+        - OpenRank scores
+        - Number of onchain package dependencies
+        - Number of developer links
+        - Eligibility thresholds from config
+        
+        Results are stored in analysis['devtooling_project_results'].
         """
         df_results = self.analysis['devtooling_projects'].copy()
-        df_edges = self.analysis['unified_edges']  # raw edges with link_type
+        df_scores = self.analysis['project_openrank_scores'].copy()
+        df_edges = self.analysis['weighted_edges']
 
-        # For "num_projects_with_package_links"
-        df_pkg = df_edges[df_edges['link_type'] == 'package_dependency']
-        df_results['num_projects_with_package_links'] = df_results['project_id'].apply(
-            lambda pid: df_pkg[df_pkg['j'] == pid]['i'].nunique()
+        # Count onchain package dependency links
+        df_pkg_deps = df_edges[df_edges['link_type'] == 'PACKAGE_DEPENDENCY']
+        df_results['total_dependents'] = df_results['project_id'].apply(
+            lambda pid: df_pkg_deps[df_pkg_deps['j'] == pid]['i'].nunique()
         )
-
-        # For "num_projects_with_dev_links"
-        df_dev = df_edges[df_edges['link_type'] == 'developer_to_devtool']
-        df_results['num_projects_with_dev_links'] = df_results['project_id'].apply(
-            lambda pid: df_dev[df_dev['j'] == pid]['i'].nunique()
+        
+        # Count developer → devtooling links
+        df_dev_links = df_edges[df_edges['link_type'] == 'DEVELOPER_TO_DEVTOOLING_PROJECT']
+        df_results['developer_links'] = df_results['project_id'].apply(
+            lambda pid: df_dev_links[df_dev_links['j'] == pid]['i'].nunique()
         )
-
-        # "num_onchain_developers_with_links"
-        df_devrepo = self.analysis['developers_to_repositories']
-        onchain_project_ids = set(self.analysis['onchain_projects']['project_id'].unique())
-        devs_onchain = set(df_devrepo[df_devrepo['project_id'].isin(onchain_project_ids)]['developer_id'].unique())
-
-        df_results['num_onchain_developers_with_links'] = df_results['project_id'].apply(
-            lambda pid: len(
-                set(df_dev[df_dev['j'] == pid]['i'].unique()) & devs_onchain
-            )
-        )
-
+        
         # Apply eligibility thresholds
-        elig = self.config.eligibility_thresholds
-        df_results['is_eligible'] = (
-            (df_results['num_projects_with_package_links'] >= elig['num_projects_with_package_links']) |
-            (
-                (df_results['num_projects_with_dev_links'] >= elig['num_projects_with_dev_links']) &
-                (df_results['num_onchain_developers_with_links'] >= elig['num_onchain_developers_with_links'])
-            )
-        ).astype(int)
-
-        self.analysis['devtooling_project_results'] = df_results
-
-    def _normalize_scores(self) -> None:
-        """
-        Merge the eigen trust results with devtooling projects,
-        apply eligibility mask, then do a final normalization so that
-        v_aggregated sums to 1 across devtooling projects.
-        """
-        df_results = self.analysis['devtooling_project_results'].copy()
-        df_scores = self.analysis['project_openrank_scores'].copy()  # i -> v
-
-        # Merge
-        df_results = df_results.merge(df_scores, left_on='project_id', right_on='i', how='left')
+        thresholds = self.config.eligibility_thresholds
+        df_results['is_eligible'] = 0
+        df_results.loc[
+            (df_results['total_dependents'] >= thresholds.get('num_projects_with_package_links', 0)) |
+            (df_results['developer_links'] >= thresholds.get('num_onchain_developers_with_links', 0)),
+            'is_eligible'
+        ] = 1
         
-        # Replace NaN values with 0.0 without using inplace
+        # Merge scores and compute final rankings
+        df_results = df_results.merge(
+            df_scores, left_on='project_id', right_on='i', how='left'
+        )
         df_results['v'] = df_results['v'].fillna(0.0)
+        df_results.drop_duplicates(subset=['project_id'], inplace=True)
 
-        # Apply eligibility
+        # Normalize final scores
         df_results['v_aggregated'] = df_results['v'] * df_results['is_eligible']
-
-        # Final normalization across devtooling projects
-        total = df_results['v_aggregated'].sum()
-        if total > 0:
-            df_results['v_aggregated'] = df_results['v_aggregated'] / total
-
+        total_score = df_results['v_aggregated'].sum()
+        if total_score > 0:
+            df_results['v_aggregated'] /= total_score
+            
+        df_results.sort_values(by='v_aggregated', ascending=False, inplace=True)
         self.analysis['devtooling_project_results'] = df_results
 
-    def _serialize_results(self) -> None:
+    # --------------------------------------------------------------------
+    # Helper: MinMax Scaling
+    # --------------------------------------------------------------------
+    @staticmethod
+    def _minmax_scale(values: pd.Series) -> pd.Series:
         """
-        Create a simplified graph of onchain projects -> devtooling projects,
-        with edges weighted by the sum of the weights of all edges between them.
+        Apply min-max scaling to a series of values.
+        
+        Args:
+            values: Input series to scale
+            
+        Returns:
+            Scaled series with values between 0 and 1
         """
-        # Get project names and scores
-        onchain_names = self.analysis['onchain_projects'].set_index('project_id')[['display_name']]
-        dt_results = (
-            self.analysis['devtooling_project_results']
-            .set_index('project_id')
-            .loc[lambda df: df['v_aggregated'] > 0, ['display_name', 'v_aggregated']]
-        )
-        
-        # Get edges
-        edges = self.analysis['unified_edges']
-        
-        # Direct package dependency edges
-        direct_edges = (
-            edges.query("link_type=='package_dependency'")
-            [['i', 'j']]
-            .rename(columns={'i': 'onchain_project_id', 'j': 'devtooling_project_id'})
-        )
-
-        # Indirect developer edges 
-        onchain_dev = (
-            edges.query("link_type=='onchain_to_developer'")
-            [['i', 'j']]
-            .rename(columns={'i': 'onchain_project_id', 'j': 'developer_id'})
-        )
-        dev_devtool = (
-            edges.query("link_type=='developer_to_devtool'")
-            [['i', 'j']]
-            .rename(columns={'i': 'developer_id', 'j': 'devtooling_project_id'})
-        )
-        indirect_edges = (
-            onchain_dev.merge(dev_devtool, on='developer_id')
-            [['onchain_project_id', 'devtooling_project_id']]
-        )
-
-        # Combine all edges and merge with project data
-        graph = (
-            pd.concat([direct_edges, indirect_edges])
-            .drop_duplicates()
-            .merge(dt_results, left_on='devtooling_project_id', right_index=True)
-            .rename(columns={'display_name': 'Devtooling Project'})
-            .merge(onchain_names, left_on='onchain_project_id', right_index=True)
-            .rename(columns={'display_name': 'Onchain Project'})
-        )
-
-        # Calculate scores
-        graph['Score'] = (
-            graph.groupby('devtooling_project_id')['v_aggregated'].transform('max')
-            / graph.groupby('devtooling_project_id')['onchain_project_id'].transform('nunique')
-        )
-
-        self.analysis['devtooling_graph'] = graph
-
+        vmin, vmax = values.min(), values.max()
+        if vmax == vmin:
+            return pd.Series([0.5] * len(values), index=values.index)
+        return (values - vmin) / (vmax - vmin)
+    
 
 # ------------------------------------------------------------------------
-# Load config & data
+# Helper Functions
 # ------------------------------------------------------------------------
-
 def load_config(config_path: str) -> Tuple[DataSnapshot, SimulationConfig]:
     """
-    Load configuration from YAML.
-    Returns (DataSnapshot, SimulationConfig).
+    Load configuration from a YAML file.
     """
     with open(config_path, 'r') as f:
-        ycfg = yaml.safe_load(f)
+        config = yaml.safe_load(f)
 
-    ds = DataSnapshot(
-        data_dir=ycfg['data_snapshot'].get('data_dir', "eval-algos/S7/data/devtooling_testing2"),
-        onchain_projects_file=ycfg['data_snapshot'].get('onchain_projects_file', "onchain_projects.csv"),
-        devtooling_projects_file=ycfg['data_snapshot'].get('devtooling_projects_file', "devtooling_projects.csv"),
-        package_links_file=ycfg['data_snapshot'].get('package_links_file', "package_links.csv"),
-        developers_to_repositories_file=ycfg['data_snapshot'].get('developers_to_repositories_file', "developers_to_repositories.csv")
+    data_snapshot = DataSnapshot(
+        data_dir=config['data_snapshot'].get('data_dir', "eval-algos/S7/data/devtooling_testing_v3"),
+        onchain_projects_file=config['data_snapshot'].get('onchain_projects_file', "onchain_projects.csv"),
+        devtooling_projects_file=config['data_snapshot'].get('devtooling_projects_file', "devtooling_projects.csv"),
+        project_dependencies_file=config['data_snapshot'].get('project_dependencies_file', "project_dependencies.csv"),
+        developers_to_projects_file=config['data_snapshot'].get('developers_to_projects_file', "developers_to_projects.csv")
     )
 
-    # Load simulation config directly from YAML
-    sim = ycfg.get('simulation', {})
-    sc = SimulationConfig(
-        alpha=sim.get('alpha', 0.2),
-        time_decay=sim.get('time_decay', {}),
-        onchain_project_pretrust_weights=sim.get('onchain_project_pretrust_weights', {}),
-        dependency_source_weights=sim.get('dependency_source_weights', {}),
-        git_event_weights=sim.get('git_event_weights', {}),
-        link_type_weights=sim.get('link_type_weights', {}),
-        eligibility_thresholds=sim.get('eligibility_thresholds', {})
+    sim_config = config.get('simulation', {})
+    simulation_config = SimulationConfig(
+        alpha=sim_config.get('alpha', 0.2),
+        time_decay=sim_config.get('time_decay', {}),
+        onchain_project_pretrust_weights=sim_config.get('onchain_project_pretrust_weights', {}),
+        devtooling_project_pretrust_weights=sim_config.get('devtooling_project_pretrust_weights', {}),
+        event_type_weights=sim_config.get('event_type_weights', {}),
+        link_type_weights=sim_config.get('link_type_weights', {}),
+        eligibility_thresholds=sim_config.get('eligibility_thresholds', {})
     )
 
-    return ds, sc
+    return data_snapshot, simulation_config
 
-def load_data(ds: DataSnapshot) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame]:
-    """
-    Load raw CSV data, returning the four expected DataFrames.
-    """
-    def path(x: str):
-        return f"{ds.data_dir}/{x}"
 
-    df_onchain_projects = pd.read_csv(path(ds.onchain_projects_file))
-    df_devtooling_projects = pd.read_csv(path(ds.devtooling_projects_file))
-    df_package_links = pd.read_csv(path(ds.package_links_file))
-    df_developers_to_repositories = pd.read_csv(path(ds.developers_to_repositories_file))
+def load_data(data_snapshot: DataSnapshot) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame]:
+    """
+    Load data files specified in the DataSnapshot.
+    """
+    def get_path(filename: str) -> str:
+        return f"{data_snapshot.data_dir}/{filename}"
+
+    df_onchain_projects = pd.read_csv(get_path(data_snapshot.onchain_projects_file))
+    df_devtooling_projects = pd.read_csv(get_path(data_snapshot.devtooling_projects_file))
+    df_project_dependencies = pd.read_csv(get_path(data_snapshot.project_dependencies_file))
+    df_developers_to_projects = pd.read_csv(get_path(data_snapshot.developers_to_projects_file))
+    df_developers_to_projects['event_month'] = pd.to_datetime(df_developers_to_projects['event_month'])
 
     return (
         df_onchain_projects,
         df_devtooling_projects,
-        df_package_links,
-        df_developers_to_repositories
+        df_project_dependencies,
+        df_developers_to_projects
     )
 
 
-# ------------------------------------------------------------------------
-# Main pipeline entry-point & packaging
-# ------------------------------------------------------------------------
-
 def run_simulation(config_path: str) -> Dict[str, Any]:
     """
-    Main pipeline entry-point.
+    Run the complete simulation pipeline.
     """
-    # Load config & data
-    ds, sim_cfg = load_config(config_path)
-    data = load_data(ds)
-
-    # Create calculator and run analysis
-    calculator = DevtoolingCalculator(sim_cfg)
+    data_snapshot, simulation_config = load_config(config_path)
+    data = load_data(data_snapshot)
+    calculator = DevtoolingCalculator(simulation_config)
     analysis = calculator.run_analysis(*data)
-
-    # Store config references
-    analysis["data_snapshot"] = ds
-    analysis["simulation_config"] = sim_cfg
-
+    analysis["data_snapshot"] = data_snapshot
+    analysis["simulation_config"] = simulation_config
     return analysis
 
 
-# ------------------------------------------------------------------------
-# Serialize
-# ------------------------------------------------------------------------
-
 def save_results(analysis: Dict[str, Any]) -> None:
     """
-    Write final results to a CSV if data_snapshot is available.
+    Save analysis results to CSV files.
     """
-    ds = analysis.get("data_snapshot")
-    if ds is None:
+    data_snapshot = analysis.get("data_snapshot")
+    if data_snapshot is None:
         print("No DataSnapshot found; skipping file output.")
         return
 
-    out_path = f"{ds.data_dir}/devtooling_openrank_results.csv"
-    analysis["devtooling_project_results"].sort_values(by='v_aggregated', ascending=False).to_csv(out_path, index=False)
-    print(f"Saved devtooling openrank results to {out_path}")
+    # Save devtooling OpenRank results
+    results_path = f"{data_snapshot.data_dir}/devtooling_openrank_results.csv"
+    final_results = analysis.get("devtooling_project_results")
+    if final_results is not None:
+        final_results.to_csv(results_path, index=False)
+        print(f"[INFO] Saved devtooling openrank results to {results_path}")
+    else:
+        print("[WARN] No 'final_results' to serialize.")
 
+    # Save detailed graph data
+    graph_path = f"{data_snapshot.data_dir}/detailed_devtooling_graph.csv"
+    graph_data = analysis.get("weighted_edges")
+    if graph_data is not None:
+        graph_data.to_csv(graph_path, index=False)
+        print(f"[INFO] Saved detailed graph to {graph_path}")
+    else:
+        print("[WARN] No 'detailed_graph' to serialize.")
 
-# ------------------------------------------------------------------------
-# main()
-# ------------------------------------------------------------------------
 
 def main():
-    """
-    Standard entry-point for running this script from CLI.
-    """
-    config_path = 'eval-algos/S7/weights/devtooling_openrank_testing.yaml'
-    analysis = run_simulation(config_path)
-    save_results(analysis)
+    """Run the complete analysis pipeline."""
+    config_path = 'eval-algos/S7/weights/devtooling_openrank.yaml'
+    try:
+        analysis = run_simulation(config_path)
+        save_results(analysis)
+    except Exception as e:
+        print(f"Error during simulation: {str(e)}")
+        import traceback
+        traceback.print_exc()
 
 
 if __name__ == "__main__":
