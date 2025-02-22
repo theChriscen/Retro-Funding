@@ -127,7 +127,7 @@ class DevtoolingCalculator:
             },
             inplace=True
         )
-        df_dependencies['event_month'] = time_ref  # Use latest timestamp (no decay for static dependencies)
+        df_dependencies['event_month'] = time_ref
         df_dependencies['i_name'] = df_dependencies['i'].map(project_mapping)
         df_dependencies['j_name'] = df_dependencies['j'].map(project_mapping)
         df_dependencies['link_type'] = 'PACKAGE_DEPENDENCY'
@@ -199,7 +199,7 @@ class DevtoolingCalculator:
         """
         df_onchain = self.analysis['onchain_projects'].copy()
         df_onchain.rename(columns={'project_id': 'i'}, inplace=True)
-        wts = self.config.onchain_project_pretrust_weights
+        wts = {k.lower(): v for k, v in self.config.onchain_project_pretrust_weights.items()}
         df_onchain['v'] = 0.0
         for col, weight in wts.items():
             if col in df_onchain.columns:
@@ -283,13 +283,6 @@ class DevtoolingCalculator:
     def _weight_edges(self) -> None:
         """
         Apply weights and time decay to graph edges.
-        
-        Weights are applied based on:
-        - Time decay (more recent events have higher weight)
-        - Link type weights from config
-        - Event type weights from config
-        
-        Results are stored in analysis['weighted_edges'].
         """
         df_edges = self.analysis['unweighted_edges'].copy()
 
@@ -312,9 +305,13 @@ class DevtoolingCalculator:
             decay_factor = self.config.time_decay.get('event_to_devtooling_repo', 1.0)
             df_edges.loc[mask_devtool, 'v_decay'] = np.exp(-decay_factor * time_diff_years[mask_devtool])
             
+        # Create uppercase mappings for weights
+        link_type_weights = {k.upper(): v for k, v in self.config.link_type_weights.items()}
+        event_type_weights = {k.upper(): v for k, v in self.config.event_type_weights.items()}
+        
         # Weight edges by link type and event type
-        df_edges['v_linktype'] = df_edges['link_type'].map(self.config.link_type_weights)
-        df_edges['v_eventtype'] = df_edges['event_type'].map(self.config.event_type_weights)
+        df_edges['v_linktype'] = df_edges['link_type'].map(link_type_weights)
+        df_edges['v_eventtype'] = df_edges['event_type'].map(event_type_weights)
         df_edges['v_final'] = df_edges['v_decay'] * df_edges['v_linktype'] * df_edges['v_eventtype']
         self.analysis['weighted_edges'] = df_edges
 
@@ -511,10 +508,10 @@ class DevtoolingCalculator:
                 s = s_new
                 break
             s = s_new
-        # Compute allocated contributions matrix: X[i, j] = A[i,j] * r_i * s_j.
+        # Compute allocated contributions matrix: X[i, j] = A[i,j] * r_i * s_j
         X = A * r[:, np.newaxis] * s[np.newaxis, :]
         
-        # Extract nonzero contributions using vectorized operations.
+        # Extract nonzero contributions
         i_idx, j_idx = np.nonzero(X)
         contributions = X[i_idx, j_idx]
         detailed_df = pd.DataFrame({

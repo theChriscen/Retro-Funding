@@ -32,7 +32,6 @@ class SimulationConfig:
     chains: Dict[str, float]    
     metrics: Dict[str, float]
     metric_variants: Dict[str, float]
-    aggregation: Dict[str, str]
 
 class OnchainBuildersCalculator:
     """
@@ -87,22 +86,23 @@ class OnchainBuildersCalculator:
     # --------------------------------------------------------------------
 
     def _filter_and_pivot_raw_metrics_by_chain(self, df: pd.DataFrame) -> pd.DataFrame:
-        metrics_list = list(self.config.metrics.keys())
-        periods_list = list(self.config.periods.keys())
+        # Filter metrics to only include those with non-zero weights
+        non_zero_metrics = [metric for metric, weight in self.config.metrics.items() if weight > 0]
+        periods_list = list(self.config.periods.values())
         return (
-            df.query("metric_name in @metrics_list and measurement_period in @periods_list")
+            df.query("metric_name in @non_zero_metrics and measurement_period in @periods_list")
             .pivot_table(
                 index=['project_id', 'project_name', 'display_name', 'chain'],
                 columns=['measurement_period', 'metric_name'],
                 values='amount',
-                aggfunc='sum',
-                fill_value=0
+                aggfunc='sum'
+                # Do not fill missing values with 0 so that null metrics remain as NaN.
             )
         )
 
     def _sum_and_weight_raw_metrics_by_chain(self, df: pd.DataFrame) -> pd.DataFrame:
         """Sum and weight raw metrics by chain weighting."""
-        chain_weights = pd.Series(self.config.chains)
+        chain_weights = pd.Series({k.upper(): v for k, v in self.config.chains.items()})
         weighted_df = (
             df.mul(df.index.get_level_values('chain').map(chain_weights).fillna(1.0), axis=0)
               .groupby(['project_id', 'project_name', 'display_name'])
@@ -112,17 +112,23 @@ class OnchainBuildersCalculator:
 
     def _calculate_metric_variants(self, df: pd.DataFrame) -> pd.DataFrame:
         """Compute Adoption, Growth, Retention from current vs. previous period."""
-        current_period = next(k for k, v in self.config.periods.items() if v == 'current')
-        previous_period = next(k for k, v in self.config.periods.items() if v == 'previous')
+        # Get period values (not keys) from config
+        periods = self.config.periods            
+        current_period = periods.get('current')
+        previous_period = periods.get('previous')
 
+        # Only process metrics with non-zero weights
+        non_zero_metrics = [metric for metric, weight in self.config.metrics.items() if weight > 0]
+        
         variant_scores = {}
-        for metric in self.config.metrics.keys():
-            current_vals = df[(current_period, metric)].fillna(0)
-            prev_vals = df[(previous_period, metric)].fillna(0)
+        for metric in non_zero_metrics:
+            # Do not fill missing values, so nulls remain as NaN.
+            current_vals = df[(current_period, metric)]
+            prev_vals = df[(previous_period, metric)]
 
-            variant_scores[(metric, 'Adoption')] = current_vals
-            variant_scores[(metric, 'Growth')] = (current_vals - prev_vals).clip(lower=0)
-            variant_scores[(metric, 'Retention')] = pd.concat([current_vals, prev_vals], axis=1).min(axis=1)
+            variant_scores[(metric, 'adoption')] = current_vals
+            variant_scores[(metric, 'growth')] = (current_vals - prev_vals).clip(lower=0)
+            variant_scores[(metric, 'retention')] = pd.concat([current_vals, prev_vals], axis=1).min(axis=1)
 
         return pd.DataFrame(variant_scores)
 
@@ -137,10 +143,13 @@ class OnchainBuildersCalculator:
         return df_norm
     
     def _minmax_scale(self, values: np.ndarray) -> np.ndarray:
-        """Min-max scaling with fallback to center_value if no range."""
+        """Min-max scaling with fallback to center_value if no range or if all values are NaN."""
         center_value = 0.5
+        if np.all(np.isnan(values)):
+            return np.full_like(values, center_value)
+        
         vmin, vmax = np.nanmin(values), np.nanmax(values)
-        if vmax == vmin:
+        if np.isnan(vmin) or np.isnan(vmax) or vmax == vmin:
             return np.full_like(values, center_value)
         return (values - vmin) / (vmax - vmin)
 
@@ -153,26 +162,19 @@ class OnchainBuildersCalculator:
                     out[(metric, variant)] *= (m_weight * v_weight)
         return out
 
-    def _aggregate_metric_variants(self, df: pd.DataFrame) -> pd.DataFrame:
+    def _aggregate_metric_variants(self, df: pd.DataFrame, method: str = 'power_mean') -> pd.DataFrame:
         """
         Combine weighted, normalized metric variant columns into a single project score.
-        By default, use a weighted power mean aggregator. The parameter 'p' can be tuned.
+        By default, use a weighted power mean aggregator. Other options can be added.
         """
-        n = df.shape[1]
         out = df.copy()
-    
-        agg_config = getattr(self.config, 'aggregation', {})
-        method = agg_config.get('method', 'power_mean') if isinstance(agg_config, dict) else 'power_mean'
-        p = agg_config.get('p', 2) if isinstance(agg_config, dict) else 2
-        
         if method == 'power_mean':
-            if p == 0: # geometric mean (not recommended)
-                epsilon = 1e-9
-                out['project_score'] = np.exp(np.log(df + epsilon).mean(axis=1))
-            else: # power mean
-                out['project_score'] = (df.pow(p).sum(axis=1) / n)**(1/p)
+            # Count only non-null values to adjust the denominator
+            p = 2
+            counts = df.notna().sum(axis=1)            
+            out['project_score'] = ((df.pow(p).sum(axis=1, skipna=True) / counts)**(1/p)).where(counts > 0)
         elif method == 'sum':
-            out['project_score'] = df.sum(axis=1)
+            out['project_score'] = df.sum(axis=1, skipna=True)
         else:
             raise ValueError(f"Invalid aggregation method: {method}")
 
@@ -188,18 +190,13 @@ class OnchainBuildersCalculator:
         """
         def _flat(col):
             if isinstance(col, tuple):
-                # If the first element is a period (from the pivot), e.g., "Jan 2025"
-                # Format as: "metric [period]"
                 if col[0] in self.config.periods:
-                    return f"{col[1]} [{col[0]}]"
-                # If the second element is one of our known metric variants
-                # Format as: "metric - variant"
+                    return f"{col[1].lower().replace(' ', '_')} [{col[0].lower().replace(' ', '_')}]"
                 elif col[1] in self.config.metric_variants:                    
-                    return f"{col[0]} - {col[1].lower()}_variant"
+                    return f"{col[0].lower().replace(' ', '_')}_{col[1].lower()}_variant"
                 else:
-                    # Fallback: join with a hyphen
-                    return " - ".join(str(x) for x in col)
-            return str(col)
+                    return "_".join(str(x).lower().replace(' ', '_') for x in col)
+            return str(col).lower().replace(' ', '_')
         out = df.copy()
         out.columns = [_flat(c) for c in df.columns]
         return out
@@ -254,8 +251,7 @@ def load_config(config_path: str) -> Tuple[DataSnapshot, SimulationConfig]:
         periods=sim.get('periods', {}),
         chains=sim.get('chains', {}),
         metrics=sim.get('metrics', {}),
-        metric_variants=sim.get('metric_variants', {}),
-        aggregation=sim.get('aggregation', {})
+        metric_variants=sim.get('metric_variants', {})
     )
 
     return ds, sc
@@ -270,8 +266,11 @@ def load_data(ds: DataSnapshot) -> pd.DataFrame:
     df_projects = pd.read_csv(path(ds.projects_file))
     df_metrics = pd.read_csv(path(ds.metrics_file))
 
-    df_metrics['measurement_period'] = pd.to_datetime(df_metrics['sample_date']).dt.strftime('%b %Y')
-    return df_metrics.merge(df_projects, on='project_id', how='left')
+    if 'measurement_period' not in df_metrics.columns:
+        df_metrics['measurement_period'] = pd.to_datetime(df_metrics['sample_date']).dt.strftime('%b %Y')
+        return df_metrics.merge(df_projects, on='project_id', how='left')
+    else:
+        return df_metrics
 
 
 # ------------------------------------------------------------------------
