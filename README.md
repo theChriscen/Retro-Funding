@@ -1,6 +1,7 @@
-## Guide for Retrieving Data Snapshots from OSO
 
-### Setup
+# Quickstart
+
+## Setup
 
 Clone the repo and install the dependencies:
 
@@ -8,22 +9,7 @@ Clone the repo and install the dependencies:
 poetry install
 ```
 
-Add your BigQuery credentials to the root directory as `credentials.json`. Update the `GCP_CREDENTIALS` and `GCP_PROJECT_ID` in `eval-algos/scripts/config.py` to match your project.
-
-See [here](https://docs.opensource.observer/docs/get-started/bigquery) for more information on how to get your BigQuery credentials.
-
-### Retrieve the Latest Data
-
-From the root directory, run:
-
-```bash
-python eval-algos/scripts/fetch_data.py
-```
-
-This will download the data from BigQuery and save it to the `data` directory. You can review the included models in `eval-algos/models/config.py`.
-
-
-### Run the Allocation Pipeline
+## Simulation Pipeline
 
 Modify the YAML config files in `eval-algos/S7/weights` to update the metrics, weights, and other parameters.
 
@@ -140,3 +126,23 @@ Applies weights based on:
   - Per devtool: Sum equals its overall score
   - Per onchain project: Sum equals its pretrust
 </details>
+
+# Data Updates
+
+## Credentials
+
+Add your BigQuery credentials to the root directory as `credentials.json`. Update the `GCP_CREDENTIALS` and `GCP_PROJECT_ID` in `eval-algos/scripts/config.py` to match your project.
+
+See [here](https://docs.opensource.observer/docs/get-started/bigquery) for more information on how to get your BigQuery credentials.
+
+## Retrieve the Latest Data
+
+From the root directory, run:
+
+```bash
+python eval-algos/scripts/fetch_data.py
+```
+
+This will download the data from BigQuery and save it to the `data` directory. You can review the included models in `eval-algos/scripts/config.py`.
+
+Note: the models in the config file may not always be the same as the latest ones used for the algorithms, so for the time being, we recommend using the raw data files in the `data` directory.
