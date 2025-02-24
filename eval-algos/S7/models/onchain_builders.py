@@ -1,3 +1,4 @@
+import argparse
 from dataclasses import dataclass
 import numpy as np
 import pandas as pd
@@ -430,8 +431,14 @@ def save_results(analysis: Dict[str, Any]) -> None:
 def main():
     """
     Standard entry-point for running the onchain builders analysis pipeline.
+    Accepts a YAML filename as a command line argument.
     """
-    config_path = 'eval-algos/S7/weights/onchain_builders_testing.yaml'
+    parser = argparse.ArgumentParser(description='Run onchain builders analysis pipeline')
+    parser.add_argument('yaml_file', nargs='?', default='onchain_builders_testing.yaml',
+                      help='Name of YAML file in weights directory (default: onchain_builders_testing.yaml)')
+    args = parser.parse_args()
+    
+    config_path = f'eval-algos/S7/weights/{args.yaml_file}'
     try:
         analysis = run_simulation(config_path)
         save_results(analysis)

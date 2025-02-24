@@ -36,109 +36,107 @@ python eval-algos/S7/models/devtooling_openrank.py
 
 This will run the allocation pipeline and save the results to the corresponding data directories.
 
-# Model Details (WIP)
+Note: we have provided raw data files in the `data` directory for testing purposes.
+
+# Model Details
 
 ## Onchain Builders
 
-The Onchain Builders model is designed to analyze and score blockchain-based projects based on their onchain activity. By focusing on relevant metrics (like transactions, active users, and gas usage) and comparing them across different time periods, this model can help identify projects that are growing, retaining users, or adopting new behavior at a higher rate.
+The Onchain Builders model analyzes and scores blockchain-based projects based on their onchain activity. It processes raw metrics through a multi-step pipeline to produce normalized, weighted scores that reflect project performance across different chains and time periods.
 
 <details>
-<summary>Steps and Logic</summary>
+<summary>Pipeline Steps</summary>
 
-#### 1. Collect Onchain Data
-Gather metrics—such as transaction counts, user counts, and possibly gas fees—for each project from the relevant blockchains. Each metric is associated with a specific time period (for instance, a "current" month versus a "previous" month).
+#### 1. Filter and Pivot Raw Metrics
+- Takes raw metrics data with non-zero weights for specified measurement periods
+- Pivots data by chain and metric to create a structured view
+- Groups by `project_id`, `project_name`, `display_name`, and `chain`
 
-#### 2. Pivoting and Aggregation
-Reorganize the raw data so that projects become rows, and each relevant (time period, metric) pair becomes a column. This allows for side-by-side comparisons of metrics for each project.
+#### 2. Sum and Weight by Chain
+- Applies chain-specific weights (e.g., different weights for OP Mainnet vs other chains)
+- Sums weighted metrics across all chains for each project
+- Preserves project metadata in the aggregation
 
-#### 3. Chain Weighting
-Some blockchains may carry more significance than others. For example, you can assign a higher weight to a project's performance on one chain over another. The model multiplies each project's metrics by the chain's weight before summing.
+#### 3. Calculate Metric Variants
+For each metric, computes three variants:
+- **Adoption**: Current period value
+- **Growth**: Positive difference between current and previous period values
+- **Retention**: Minimum value between current and previous periods
 
-#### 4. Metric Variants
-Instead of only using raw metrics, the model breaks them down into:
-- Adoption: The current level of usage or activity
-- Growth: The change compared to the previous period
-- Retention: A measure of continuous usage, such as the smaller value between the current and previous metrics
+#### 4. Normalize Metric Variants
+- Applies min-max normalization to each metric variant
+- Scales values to [0,1] range while preserving null values (e.g., TVL for non-DeFi projects)
+- Uses fallback center value (0.5) when range is zero
 
-#### 5. Normalization
-Different metrics may have vastly different scales (e.g., user counts vs. gas fees). The model normalizes each metric to make them comparable, often on a zero-to-one scale.
+#### 5. Apply Weights
+- Multiplies each normalized metric variant by:
+  - Its metric-specific weight
+  - Its variant-specific weight (adoption/growth/retention)
 
-#### 6. Weighting
-Specify how important each metric is. For example, you might value transaction counts more than user counts. These weights are applied to the normalized metrics, reflecting your priorities.
+#### 6. Aggregate Final Scores
+- Combines weighted variants using power mean (p=2)
+- Normalizes final scores to sum to 1.0
 
-#### 7. Final Score
-After combining the weighted metrics, each project receives a single aggregated score, which can be sorted from highest to lowest. This provides a clear ranking of projects based on their onchain performance.
-
-#### 8. Results
-The final output is a table showing each project's contributions to the overall score and the final ranking. Optionally, you can also apply an allocation mechanism to distribute budgets or rewards proportionally based on those scores.
+#### 7. Prepare Results
+- Flattens multi-level columns for readability
+- Merges intermediate results for transparency
+- Sorts projects by final weighted score
 </details>
 
-## Devtooling
+## Devtooling OpenRank
 
-The Devtooling model evaluates the value of open-source developer tool projects by quantifying their usefulness to onchain projects. It integrates economic signals from onchain projects, developer contributions, and GitHub activity into a unified trust propagation framework using an EigenTrust algorithm. This model highlights which devtool projects are most central and impactful by considering both direct dependencies and the influence of developer activity.
+The Devtooling model evaluates open-source developer tools by analyzing their relationships with onchain projects through package dependencies and developer contributions. It uses an EigenTrust-based algorithm released by OpenRank to propagate value through the graph.
 
 <details>
-<summary>Steps and Logic</summary>
+<summary>Pipeline Steps</summary>
 
-#### 1. Data Collection
-- **Gather Data:**  
-  Collect data on:
-  - **Onchain Projects:** Metrics such as transaction counts, gas fees, and user activity.
-  - **Devtooling Projects:** GitHub metrics such as star counts, forks, etc.
-  - **Package Dependencies:** Relationships where onchain projects depend on devtooling projects.
-  - **Developer Contributions:** Commit events and other GitHub engagement data linking developers to projects.
+#### 1. Build Unweighted Graph
+Constructs a directed graph with three types of edges:
+- **Package Dependencies**: Onchain projects → Devtooling projects
+- **Commit Events**: Onchain projects → Developers
+- **GitHub Engagement**: Developers → Devtooling projects
 
-#### 2. Pretrust Seeding
-- **Onchain Project Pretrust:**  
-  Compute economic pretrust scores for onchain projects by applying a log transformation and min–max scaling to metrics (e.g., transaction counts, gas fees). These scores are combined using configured weights and normalized.
-- **Devtooling Project Pretrust:**  
-  Similarly, compute GitHub-based pretrust scores for devtooling projects using metrics like star count and fork count.
-- **Developer Reputation:**  
-  Distribute onchain project pretrust scores to developers based on their commit activity. The resulting developer reputation is normalized and reflects how much trust developers have earned through their onchain contributions.
+Removes duplicate edges when an onchain project is also a devtooling project.
 
-#### 3. Graph Construction
-- **Directed Edges:**  
-  Build an unweighted directed graph with three types of edges:
-  1. **Package Dependency:** Onchain projects → Devtooling projects.
-  2. **Commit Events:** Onchain projects → Developers.
-  3. **GitHub Engagement:** Developers → Devtooling projects.
-- **Duplicate Removal:**  
-  Remove duplicate edges when an onchain project also appears as a devtooling project, ensuring no overcounting of trust contributions.
+#### 2. Compute Onchain Project Pretrust
+- Uses economic metrics from onchain projects
+- Applies log transformation and min-max scaling
+- Combines metrics using configured weights
+- Normalizes scores to sum to 1.0
 
-#### 4. Edge Weighting & Time Decay
-- **Weight Assignment:**  
-  Each edge is weighted based on:
-  - Its link type (e.g., package dependency, commit event, GitHub engagement).
-  - Its event type (e.g., NPM, CARGO, COMMIT_CODE) via configured weights.
-- **Time Decay:**  
-  Apply an exponential decay factor to edges (except static package dependencies) based on the recency of the event. More recent interactions contribute more to the final score.
+#### 3. Compute Devtooling Project Pretrust
+- Uses GitHub metrics (num packages, stars, forks, etc.)
+- Applies log transformation and min-max scaling
+- Combines metrics using configured weights
+- Normalizes scores to sum to 1.0
 
-#### 5. Trust Propagation (EigenTrust)
-- **Combined Pretrust:**  
-  Merge pretrust scores from onchain projects, devtooling projects, and developer reputation to create a unified seed.
-- **EigenTrust Algorithm:**  
-  Run the EigenTrust propagation on the weighted graph to compute final trust (or OpenRank) scores for each node, capturing the overall influence of each project.
+#### 4. Compute Developer Reputation
+- Developers are pre-filtered to focus on active developers committing code to onchain project repos in Rust, Solidity, TypeScript, and Vyper
+- Distributes onchain project pretrust to developers based on commit activity
 
-#### 6. Ranking & Eligibility
-- **Devtooling Ranking:**  
-  Devtooling projects are ranked based on their final EigenTrust scores.
-- **Eligibility Criteria:**  
-  Projects must meet configured thresholds (e.g., minimum counts of onchain package dependencies or developer links) to be considered eligible.
-- **Normalization:**  
-  The final scores are normalized so that the sum of scores among eligible projects equals 1.
+#### 5. Weight Edges
+Applies weights based on:
+- Link type (package dependency, commit, GitHub engagement)
+- Event type (NPM, CARGO, COMMIT_CODE)
+- Time decay for non-static relationships
+- More recent interactions contribute more weight in most cases
 
-#### 7. Value Flow Graph
-- **Detailed Attribution:**  
-  Use an iterative proportional fitting (IPF) procedure to create a detailed value flow graph:
-  - For each devtooling project, the sum of contributions from onchain projects equals its overall score.
-  - For each onchain project, the total contributions equal its economic pretrust.
-- **Visualization:**  
-  The resulting data can be used to generate Sankey diagrams or other visualizations that show how trust flows from onchain projects to devtooling projects.
+#### 6. Apply EigenTrust
+- Combines pretrust scores from all sources
+- Runs EigenTrust propagation on weighted graph
+- Computes final trust scores for each node
 
-#### 8. Results
-- **Final Outputs:**  
-  - A ranked list of devtooling projects with normalized trust scores.
-  - Detailed relationship data capturing the contribution of each onchain project to each devtooling project’s score.
-  - Supplementary metrics (e.g., counts of developer links and package dependencies) providing additional context.
-  
+#### 7. Rank and Evaluate Projects
+- Ranks devtooling projects by final EigenTrust scores
+- Applies eligibility criteria:
+  - Minimum package dependency count
+  - Minimum developer link count
+- Normalizes scores among eligible projects
+
+#### 8. Serialize Value Flow
+- Uses iterative proportional fitting (IPF)
+- Creates detailed value flow attribution
+- Ensures contribution sums match:
+  - Per devtool: Sum equals its overall score
+  - Per onchain project: Sum equals its pretrust
 </details>
