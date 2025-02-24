@@ -5,6 +5,7 @@ from typing import Dict, Any, Tuple
 import yaml
 import traceback
 import warnings
+import argparse
 
 from openrank_sdk import EigenTrust
 warnings.filterwarnings('ignore', message='Defaulting to the \'raw\' score scale*')
@@ -32,11 +33,11 @@ class SimulationConfig:
     Contains simulation parameters for the trust score computation.
     """
     alpha: float
-    time_decay: Dict[str, float]
     onchain_project_pretrust_weights: Dict[str, float]
     devtooling_project_pretrust_weights: Dict[str, float]
-    event_type_weights: Dict[str, float]
+    link_type_time_decays: Dict[str, float]
     link_type_weights: Dict[str, float]
+    event_type_weights: Dict[str, float]
     eligibility_thresholds: Dict[str, int]
 
 
@@ -276,7 +277,6 @@ class DevtoolingCalculator:
         dev_names = self.analysis['developers_to_projects'].set_index('developer_id')['developer_name'].to_dict()
         df_dev_reputation['developer_name'] = df_dev_reputation['developer_id'].map(dev_names)
         
-        df_dev_reputation['reputation'] = self._minmax_scale(df_dev_reputation['reputation'])
         self.analysis['developer_reputation'] = df_dev_reputation
 
     # --------------------------------------------------------------------
@@ -289,29 +289,29 @@ class DevtoolingCalculator:
             self.analysis["weighted_edges"]
         """
         df_edges = self.analysis['unweighted_edges'].copy()
+        df_edges['event_type'] = df_edges['event_type'].str.upper()
+
+        # Get algorithm settings
+        link_type_decay_factors = {k.upper(): v for k,v in self.config.link_type_time_decays.items()}
+        event_type_weights = {k.upper(): v for k, v in self.config.event_type_weights.items()}
 
         # Calculate time decay
         time_ref = df_edges['event_month'].max()    
         time_diff_years = (time_ref - df_edges['event_month']).dt.days / 365.0
-        
-        df_edges['v_decay'] = 1.0  # Default decay
-        
-        mask_onchain = df_edges['link_type'] == 'ONCHAIN_PROJECT_TO_DEVELOPER'
-        if mask_onchain.any():
-            decay_factor = self.config.time_decay.get('commit_to_onchain_repo', 1.0)
-            df_edges.loc[mask_onchain, 'v_decay'] = np.exp(-decay_factor * time_diff_years[mask_onchain])
-            
-        mask_devtool = df_edges['link_type'] == 'DEVELOPER_TO_DEVTOOLING_PROJECT'
-        if mask_devtool.any():
-            decay_factor = self.config.time_decay.get('event_to_devtooling_repo', 1.0)
-            df_edges.loc[mask_devtool, 'v_decay'] = np.exp(-decay_factor * time_diff_years[mask_devtool])
-            
-        link_type_weights = {k.upper(): v for k, v in self.config.link_type_weights.items()}
-        event_type_weights = {k.upper(): v for k, v in self.config.event_type_weights.items()}
-        
-        df_edges['v_linktype'] = df_edges['link_type'].map(link_type_weights)
-        df_edges['v_eventtype'] = df_edges['event_type'].map(event_type_weights)
-        df_edges['v_final'] = df_edges['v_decay'] * df_edges['v_linktype'] * df_edges['v_eventtype']
+
+        # Initialize with zero weights
+        df_edges['v_edge'] = 0.0
+
+        # Weight events by type and decay
+        for link_type, decay_factor in link_type_decay_factors.items():
+            mask = df_edges['link_type'] == link_type
+            decay_lambda = np.log(2) / decay_factor
+            df_edges.loc[mask, 'v_edge'] = (
+                np.exp(-decay_lambda * time_diff_years[mask])
+                * df_edges.loc[mask, 'event_type'].map(event_type_weights)
+            )
+
+        # Save the weighted edges
         self.analysis['weighted_edges'] = df_edges
 
     # --------------------------------------------------------------------
@@ -330,7 +330,8 @@ class DevtoolingCalculator:
         """
         alpha = self.config.alpha
         et = EigenTrust(alpha=alpha)
-        
+    
+        # Get pretrust scores
         pretrust_list = []
         onchain = self.analysis.get('onchain_projects_pretrust_scores', pd.DataFrame())
         if not onchain.empty:
@@ -339,22 +340,47 @@ class DevtoolingCalculator:
         devtooling = self.analysis.get('devtooling_projects_pretrust_scores', pd.DataFrame())
         if not devtooling.empty:
             pretrust_list.extend({'i': row['i'], 'v': row['v']} for _, row in devtooling.iterrows() if row['v'] > 0)
+        devtooling_ids = devtooling['i'].unique()
         
         developers = self.analysis.get('developer_reputation', pd.DataFrame())
         if not developers.empty:
             pretrust_list.extend({'i': row['developer_id'], 'v': row['reputation']} for _, row in developers.iterrows() if row['reputation'] > 0)
         
         df_edges = self.analysis['weighted_edges'].copy()
-        df_edges = df_edges[df_edges['v_final'] > 0]
-        edge_records = [{'i': row['i'], 'j': row['j'], 'v': row['v_final']} for _, row in df_edges.iterrows()]
+        df_edges = df_edges[df_edges['v_edge'] > 0]
+
+        # Pass 1: Run EigenTrust on package dependency links
+        package_edge_records = [
+            {'i': row['i'], 'j': row['j'], 'v': row['v_edge']}
+            for _, row in df_edges.iterrows()
+            if row['link_type'] == 'PACKAGE_DEPENDENCY'
+        ]
+        package_scores = et.run_eigentrust(package_edge_records, pretrust_list)
+        df_package_scores = pd.DataFrame(package_scores, columns=['i', 'v'])
+        df_package_scores = df_package_scores[df_package_scores['i'].isin(devtooling_ids)]
+        df_package_scores['v'] = df_package_scores['v'] / df_package_scores['v'].sum()
+        df_package_scores['link_type'] = 'PACKAGE_DEPENDENCY'
+
+        # Pass 2: Run EigenTrust on developer links
+        developer_edge_records = [
+            {'i': row['i'], 'j': row['j'], 'v': row['v_edge']}
+            for _, row in df_edges.iterrows()
+            if row['link_type'] != 'PACKAGE_DEPENDENCY'
+        ]
+        developer_scores = et.run_eigentrust(developer_edge_records, pretrust_list)
+        df_developer_scores = pd.DataFrame(developer_scores, columns=['i', 'v'])
+        df_developer_scores = df_developer_scores[df_developer_scores['i'].isin(devtooling_ids)]
+        df_developer_scores['v'] = df_developer_scores['v'] / df_developer_scores['v'].sum()
+        df_developer_scores['link_type'] = 'DEVELOPER_TO_DEVTOOLING_PROJECT'
+
+        # Apply link type weights and normalize again
+        link_type_weights = {k.upper(): v for k, v in self.config.link_type_weights.items()}
+        df_scores_pre = pd.concat([df_package_scores, df_developer_scores])
+        df_scores_pre['v'] = df_scores_pre['v'] * df_scores_pre['link_type'].map(link_type_weights)
+        df_scores = df_scores_pre.groupby('i', as_index=False)['v'].sum()
+        df_scores['v'] = df_scores['v'] / df_scores['v'].sum()
         
-        if not edge_records:
-            raise ValueError("No edge records found - check if v_final values are all 0 or if weighted_edges is empty")
-        if not pretrust_list:
-            raise ValueError("No pretrust scores found - check computed pretrust scores")
-        
-        scores = et.run_eigentrust(edge_records, pretrust_list)
-        df_scores = pd.DataFrame(scores, columns=['i', 'v']).set_index('i')
+        df_scores.set_index('i', inplace=True)
         self.analysis['project_openrank_scores'] = df_scores
 
     # --------------------------------------------------------------------
@@ -530,12 +556,12 @@ def load_config(config_path: str) -> Tuple[DataSnapshot, SimulationConfig]:
 
     sim_config = config.get('simulation', {})
     simulation_config = SimulationConfig(
-        alpha=sim_config.get('alpha', 0.2),
-        time_decay=sim_config.get('time_decay', {}),
+        alpha=sim_config.get('alpha', 0.5),
         onchain_project_pretrust_weights=sim_config.get('onchain_project_pretrust_weights', {}),
         devtooling_project_pretrust_weights=sim_config.get('devtooling_project_pretrust_weights', {}),
-        event_type_weights=sim_config.get('event_type_weights', {}),
+        link_type_time_decays=sim_config.get('link_type_time_decays', {}),
         link_type_weights=sim_config.get('link_type_weights', {}),
+        event_type_weights=sim_config.get('event_type_weights', {}),        
         eligibility_thresholds=sim_config.get('eligibility_thresholds', {})
     )
 
@@ -628,8 +654,14 @@ def save_results(analysis: Dict[str, Any]) -> None:
 def main():
     """
     Standard entry-point for running the devtooling openrank analysis pipeline.
+    Accepts a YAML filename as a command line argument.
     """
-    config_path = 'eval-algos/S7/weights/devtooling_openrank_testing.yaml'
+    parser = argparse.ArgumentParser(description='Run devtooling openrank analysis pipeline')
+    parser.add_argument('yaml_file', nargs='?', default='devtooling_openrank_testing.yaml',
+                      help='Name of YAML file in weights directory (default: devtooling_openrank_testing.yaml)')
+    args = parser.parse_args()
+    
+    config_path = f'eval-algos/S7/weights/{args.yaml_file}'
     try:
         analysis = run_simulation(config_path)
         save_results(analysis)
