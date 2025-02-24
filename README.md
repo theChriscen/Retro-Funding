@@ -28,7 +28,7 @@ Note: we have provided raw data files in the `data` directory for testing purpos
 
 ## Onchain Builders
 
-The Onchain Builders model analyzes and scores blockchain-based projects based on their onchain activity. It processes raw metrics through a multi-step pipeline to produce normalized, weighted scores that reflect project performance across different chains and time periods.
+The Onchain Builders model analyzes and scores active Superchain projects based on their onchain activity. It processes raw metrics through a multi-step pipeline to produce normalized, weighted scores that reflect project performance across different chains and time periods.
 
 <details>
 <summary>Pipeline Steps</summary>
