@@ -1,8 +1,7 @@
 name: Onchain Builder Feedback
-about: Provide feedback on Onchain Builder Mission metrics and eval algo
-title: 'Onchain Builders: '
-labels: Onchain Builders, Feedback
-assignees: ''
+description: Provide feedback on Onchain Builder Mission metrics and eval algo
+title: '[Onchain Builders]: '
+labels: ["Onchain Builders", "Feedback"]
 body:
   - type: markdown
     attributes:
