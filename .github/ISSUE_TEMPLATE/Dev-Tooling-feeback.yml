@@ -1,0 +1,34 @@
+ame: Dev Tooling Feedback
+description: Provide feedback about the Dev Tooling Mission metrics and eval algo
+title: 'Dev Tooling: '
+labels: ["Dev Tooling", "Feedback"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to provide feedback!
+  - type: dropdown
+    id: feedbackselect
+    attributes:
+      label: What are you providing feedback on?
+      multiple: false
+      options:
+        - Results - feedback about the OP allocation to projects
+        - Weights - feedback about the weights of an Eval Algo
+        - Metrics - feedback about the metrics used in the Eval Algo
+    validations:
+      required: true
+  - type: textarea
+    id: feedback
+    attributes:
+      label: Please describe your feedback 
+      placeholder: 
+    validations:
+      required: true
+  - type: textarea
+    id: reference
+    attributes:
+      label: Please provide references or examples
+      placeholder:
+    validations:
+      required: false
