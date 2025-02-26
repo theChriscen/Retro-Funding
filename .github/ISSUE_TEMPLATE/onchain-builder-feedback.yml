@@ -25,3 +25,10 @@ body:
       placeholder: 
     validations:
       required: true
+  - type: textarea
+    id: reference
+    attributes:
+      label: Please provide references or examples
+      placeholder:
+    validations:
+      required: false
