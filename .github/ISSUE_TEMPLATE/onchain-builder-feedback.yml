@@ -1,0 +1,28 @@
+name: Onchain Builder Feedback
+about: Provide feedback on Onchain Builder Mission metrics and eval algo
+title: 'Onchain Builders: '
+labels: Onchain Builders, Feedback
+assignees: ''
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to provide feedback!
+  - type: dropdown
+    id: feedbackselect
+    attributes:
+      label: What are you providing feedback on?
+      multiple: false
+      options:
+        - Eval Algo results: I want to share my feedback about the OP allocation to projects
+        - Eval Algo weights: I want to share feedback about the weights of an Eval Algo
+        - Metrics: I want to share feedback about the metrics used in the Eval Algo
+    validations:
+      required: true
+  - type: input
+    id: feedback
+    attributes:
+      label: Please describe your feedback 
+      placeholder: 
+    validations:
+      required: true
