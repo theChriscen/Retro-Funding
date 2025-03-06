@@ -3,13 +3,36 @@
 
 ## Setup
 
-Clone the repo and install the dependencies:
+Clone the repo:
+
+```bash
+gh repo clone ethereum-optimism/Retro-Funding
+```
+
+Navigate to the repo:
+
+```bash
+cd Retro-Funding
+```
+
+Install the dependencies:
 
 ```bash
 poetry install
 ```
 
+Activate the virtual environment:
+
+```bash
+poetry shell
+```
+
+Then, you can execute the commands below to test the simulation pipeline.
+
 ## Simulation Pipeline
+
+> [!NOTE]
+> We have provided raw data files in the `data` directory for testing purposes. These are NOT the latest data and do not reflect the actual projects applying for Retro Funding. This is only for testing purposes.
 
 Modify the YAML config files in `eval-algos/S7/weights` to update the metrics, weights, and other parameters.
 
@@ -20,9 +43,60 @@ python eval-algos/S7/models/onchain_builders.py
 python eval-algos/S7/models/devtooling_openrank.py
 ```
 
-This will run the allocation pipeline and save the results to the corresponding data directories.
+This will run the allocation pipeline and save the results to the corresponding data directories using the default"testing" weights.
 
-Note: we have provided raw data files in the `data` directory for testing purposes.
+To run the pipeline with a specific set of weights, run the scripts with the desired weights file as an argument:
+
+```bash
+python eval-algos/S7/models/onchain_builders.py onchain_builders_goldilocks.yaml
+python eval-algos/S7/models/devtooling_openrank.py devtooling_arcturus.yaml
+```
+
+You can now make your own changes to the weights and run the pipeline again, eg:
+
+```bash
+python eval-algos/S7/models/onchain_builders.py <my_weights.yaml>
+```
+
+Here is a [Loom Video tutorial](https://www.loom.com/share/75484a94fe404b0a9d9b09c82938d0cb?sid=45ffdb03-e9ac-4b04-8bd0-7d556171d661) for further guidance.
+
+## Simulate Funding Allocation
+
+We have also provided a module to allocate funding to the projects based on the results from the simulation pipeline.
+
+You can see how this works by looking at the [TestAlgo notebook](./TestAlgo.ipynb).
+
+For example:
+
+```python
+import pandas as pd
+import sys
+
+sys.path.append('./eval-algos/S7/models/')
+from onchain_builders import OnchainBuildersCalculator, load_config, load_data
+from utils.allocator import AllocationConfig, allocate_with_constraints
+
+# Load the data and config
+ds, sim_cfg = load_config('eval-algos/S7/weights/onchain_builders_testing.yaml')
+calculator = OnchainBuildersCalculator(sim_cfg)
+df_data = load_data(ds)
+
+# Run the analysis
+analysis = calculator.run_analysis(df_data)
+
+# Get the scores (and use the display_name as the index)
+scores = analysis['final_results']['weighted_score'].reset_index().set_index('display_name')['weighted_score']
+
+# Configure the budget and allocation constraints
+alloc = AllocationConfig(
+  budget=1_000_000,
+  min_amount_per_project=200,
+  max_share_per_project=0.05
+)
+
+# Allocate the funding
+rewards = allocate_with_constraints(scores, alloc)
+```
 
 # Model Details
 
