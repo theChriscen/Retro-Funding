@@ -18,7 +18,7 @@ def process_scores(model_yaml):
     alloc = AllocationConfig(
         budget=8_000_000/6,
         min_amount_per_project=200, 
-        max_share_per_project=0.25
+        max_share_per_project=0.05
     )
 
     # Load configuration and data using absolute paths
