@@ -24,7 +24,7 @@ poetry install
 Activate the virtual environment:
 
 ```bash
-poetry shell
+poetry env activate
 ```
 
 Then, you can execute the commands below to test the simulation pipeline.
