@@ -585,8 +585,14 @@ def load_data(data_snapshot: DataSnapshot) -> Tuple[pd.DataFrame, pd.DataFrame, 
     df_onchain_projects = pd.read_csv(get_path(data_snapshot.onchain_projects_file))
     df_devtooling_projects = pd.read_csv(get_path(data_snapshot.devtooling_projects_file))
     df_project_dependencies = pd.read_csv(get_path(data_snapshot.project_dependencies_file))
+    
     df_developers_to_projects = pd.read_csv(get_path(data_snapshot.developers_to_projects_file))
-    df_developers_to_projects['event_month'] = pd.to_datetime(df_developers_to_projects['event_month'])
+    if 'event_month' in df_developers_to_projects.columns:
+        df_developers_to_projects['event_month'] = pd.to_datetime(df_developers_to_projects['event_month'])
+    elif 'bucket_month' in df_developers_to_projects.columns:
+        df_developers_to_projects['event_month'] = pd.to_datetime(df_developers_to_projects['bucket_month'])
+    else:
+        raise ValueError("No 'event_month' or 'bucket' column found in developers_to_projects.csv")
 
     return (df_onchain_projects, df_devtooling_projects,
             df_project_dependencies, df_developers_to_projects)
