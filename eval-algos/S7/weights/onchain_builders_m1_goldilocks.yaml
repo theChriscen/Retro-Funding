@@ -1,0 +1,37 @@
+# ----------------------------------------------------
+# Onchain Builders - Goldilocks - M1
+# ----------------------------------------------------
+
+data_snapshot:
+  data_dir: 'eval-algos/S7/data/M1/onchain/'
+  projects_file: 'onchain_builders.csv'
+  metrics_file: 'onchain_metrics_by_project.csv'
+
+simulation:
+  periods:
+    previous: 'Jan 2025'
+    current: 'Feb 2025'
+  
+  # Chain weights (1.0 = full weight)
+  chains:
+    base: 1.0
+    optimism: 1.0
+
+  tvl_minimum: 1000000
+  
+  # Metric weights must sum to 1.0
+  metrics:
+    amortized_contract_invocations_monthly: 0.25
+    gas_fees_monthly: 0.25
+    average_tvl_monthly: 0.25
+    active_farcaster_users_monthly: 0.25
+    active_addresses_monthly: 0.00
+
+    active_addresses_monthly: 0.00
+    contract_invocations_monthly: 0.0
+  
+  # Variant weights must sum to 1.0
+  metric_variants:
+    adoption: 0.20    # Current period value
+    growth: 0.20      # Change from previous period
+    retention: 0.60   # Minimum of current and previous
