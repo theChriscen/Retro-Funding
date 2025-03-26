@@ -25,9 +25,8 @@ simulation:
     gas_fees_monthly: 0.25
     average_tvl_monthly: 0.25
     active_farcaster_users_monthly: 0.25
-    active_addresses_monthly: 0.00
 
-    active_addresses_monthly: 0.00
+    active_addresses_monthly: 0.0
     contract_invocations_monthly: 0.0
   
   # Variant weights must sum to 1.0
