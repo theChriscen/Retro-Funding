@@ -12,6 +12,8 @@ simulation:
     previous: 'Jan 2025'
     current: 'Feb 2025'
   
+  eligibility_filter: true
+  
   # Chain weights (1.0 = full weight)
   chains:
     base: 1.0

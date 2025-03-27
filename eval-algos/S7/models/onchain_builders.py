@@ -33,6 +33,7 @@ class SimulationConfig:
     metrics: Dict[str, float]
     metric_variants: Dict[str, float]
     tvl_minimum: float = 0 
+    eligibility_filter: bool = False
 
 
 # ------------------------------------------------------------------------
@@ -63,6 +64,10 @@ class OnchainBuildersCalculator:
             Dict[str, pd.DataFrame]: Analysis dictionary with all intermediate outputs.
         """
         # Store raw input data
+        if self.config.eligibility_filter:
+            print(f"[INFO] Eligibility filter: {self.config.eligibility_filter}")
+            df_data = df_data[df_data['is_eligible'] == True]
+            print(f"[INFO] Filtered out {len(df_data)} ineligible projects")
         self.analysis = {"raw_data": df_data}
 
         # Execute pipeline steps
@@ -382,7 +387,8 @@ def load_config(config_path: str) -> Tuple[DataSnapshot, SimulationConfig]:
         chains=sim.get('chains', {}),
         metrics=sim.get('metrics', {}),
         metric_variants=sim.get('metric_variants', {}),
-        tvl_minimum=sim.get('tvl_minimum', 0)
+        tvl_minimum=sim.get('tvl_minimum', 0),
+        eligibility_filter=sim.get('eligibility_filter', False)
     )
 
     return ds, sc
@@ -410,11 +416,11 @@ def load_data(ds: DataSnapshot) -> pd.DataFrame:
     # Derive measurement_period if not present
     if 'measurement_period' not in df_metrics.columns:
         df_metrics['measurement_period'] = pd.to_datetime(df_metrics['sample_date']).dt.strftime('%b %Y')
-        df_merged = df_metrics.merge(df_projects, on='project_id', how='left')
-        return df_merged
-    else:
-        return df_metrics
-
+    
+    cols = [c for c in df_projects.columns
+            if c in ['project_id', 'is_eligible']]
+    df_merged = df_metrics.merge(df_projects[cols], on='project_id', how='left')
+    return df_merged
 
 # ------------------------------------------------------------------------
 # Main Pipeline Entry-Point and Serialization
@@ -432,7 +438,7 @@ def run_simulation(config_path: str) -> Dict[str, Any]:
     """
     ds, sim_cfg = load_config(config_path)
     df_data = load_data(ds)
-
+    
     calculator = OnchainBuildersCalculator(sim_cfg)
     analysis = calculator.run_analysis(df_data)
 
