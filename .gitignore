@@ -1,5 +1,6 @@
 # Local
 credentials.json
+_ignore/
 *rewards.csv
 
 # Byte-compiled / optimized / DLL files
