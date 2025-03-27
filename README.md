@@ -58,6 +58,15 @@ You can now make your own changes to the weights and run the pipeline again, eg:
 python eval-algos/S7/models/onchain_builders.py <my_weights.yaml>
 ```
 
+You can also simulate the funding allocation process by running:
+
+```bash
+python eval-algos/scripts/process_onchain_builders.py <my_weights.yaml>
+python eval-algos/scripts/process_devtooling_openrank.py <my_weights.yaml>
+```
+
+Note that the budget and min/max caps are hardcoded in the scripts, so you will need to make any changes to the budget or caps directly in the scripts for now.
+
 Here is a [Loom Video tutorial](https://www.loom.com/share/75484a94fe404b0a9d9b09c82938d0cb?sid=45ffdb03-e9ac-4b04-8bd0-7d556171d661) for further guidance.
 
 ## Simulate Funding Allocation
