@@ -33,7 +33,7 @@ def process_scores(model_yaml):
     # Extract scores and calculate rewards
     scores = (
         analysis['devtooling_project_results']
-        .set_index('display_name')
+        .set_index('project_name')
         ['v_aggregated']
         .sort_values(ascending=False)
     )

@@ -52,4 +52,4 @@ simulation:
 
   eligibility_thresholds:
     num_projects_with_package_links: 3
-    num_onchain_developers_with_links: 10
+    num_onchain_developers_with_links: 5
