@@ -335,7 +335,7 @@ class OnchainBuildersCalculator:
     # Helper: MinMax Scaling (Static Method)
     # --------------------------------------------------------------------
     @staticmethod
-    def _minmax_scale(values: np.ndarray, percentile_cap: float = 98) -> np.ndarray:
+    def _minmax_scale(values: np.ndarray, percentile_cap: float = 97) -> np.ndarray:
         """
         Applies min-max scaling to an array of numeric values with a fallback center value if the range is zero.
 
