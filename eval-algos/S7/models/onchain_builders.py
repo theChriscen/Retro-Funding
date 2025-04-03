@@ -20,6 +20,7 @@ class DataSnapshot:
     data_dir: str
     projects_file: str
     metrics_file: str
+    yaml_name: str
 
 
 @dataclass
@@ -31,6 +32,8 @@ class SimulationConfig:
     chains: Dict[str, float]
     metrics: Dict[str, float]
     metric_variants: Dict[str, float]
+    tvl_minimum: float = 0 
+    eligibility_filter: bool = False
 
 
 # ------------------------------------------------------------------------
@@ -61,6 +64,10 @@ class OnchainBuildersCalculator:
             Dict[str, pd.DataFrame]: Analysis dictionary with all intermediate outputs.
         """
         # Store raw input data
+        if self.config.eligibility_filter:
+            print(f"[INFO] Eligibility filter: {self.config.eligibility_filter}")
+            df_data = df_data[df_data['is_eligible'] == True]
+            print(f"[INFO] Filtered out {len(df_data)} ineligible projects")
         self.analysis = {"raw_data": df_data}
 
         # Execute pipeline steps
@@ -81,6 +88,7 @@ class OnchainBuildersCalculator:
         """
         Filters the raw input DataFrame to include only metrics with non-zero weights for the
         specified measurement periods, and then pivots the data by 'chain' and 'metric'.
+        Applies TVL minimum threshold to TVL-related metrics.
 
         Output is stored in:
             self.analysis["pivoted_raw_metrics_by_chain"]
@@ -91,9 +99,12 @@ class OnchainBuildersCalculator:
         df = self.analysis.get("raw_data")
         if df is None:
             raise ValueError("Raw data not found in analysis. Ensure 'raw_data' is set before Step 1.")
+        
         non_zero_metrics = [metric for metric, weight in self.config.metrics.items() if weight > 0]
         periods_list = list(self.config.periods.values())
-        self.analysis["pivoted_raw_metrics_by_chain"] = (
+        
+        # First, create the basic pivot
+        pivoted = (
             df.query("metric_name in @non_zero_metrics and measurement_period in @periods_list")
               .pivot_table(
                   index=['project_id', 'project_name', 'display_name', 'chain'],
@@ -102,6 +113,30 @@ class OnchainBuildersCalculator:
                   aggfunc='sum'
               )
         )
+        
+        # If TVL minimum is set, apply it to TVL metrics
+        if hasattr(self.config, 'tvl_minimum') and self.config.tvl_minimum > 0:
+            # Calculate total TVL per project and period
+            tvl_metrics = [m for m in non_zero_metrics if 'tvl' in m.lower()]
+            for period in periods_list:
+                if tvl_metrics:
+                    # Sum TVL across all chains for each project
+                    total_tvl = (
+                        pivoted[period]
+                        .reset_index()
+                        .groupby('project_id')[tvl_metrics]
+                        .sum()
+                    )
+                    
+                    # Create a mask for projects below TVL minimum
+                    below_min = (total_tvl < self.config.tvl_minimum).any(axis=1)
+                    
+                    # Set TVL metrics to null for projects below minimum
+                    for metric in tvl_metrics:
+                        mask = pivoted.index.get_level_values('project_id').isin(below_min[below_min].index)
+                        pivoted.loc[mask, (period, metric)] = np.nan
+        
+        self.analysis["pivoted_raw_metrics_by_chain"] = pivoted
 
     # --------------------------------------------------------------------
     # Step 2: Sum & weight raw metrics by chain
@@ -300,20 +335,22 @@ class OnchainBuildersCalculator:
     # Helper: MinMax Scaling (Static Method)
     # --------------------------------------------------------------------
     @staticmethod
-    def _minmax_scale(values: np.ndarray) -> np.ndarray:
+    def _minmax_scale(values: np.ndarray, percentile_cap: float = 97) -> np.ndarray:
         """
         Applies min-max scaling to an array of numeric values with a fallback center value if the range is zero.
 
         Args:
             values (np.ndarray): Input numeric array.
-
+            percentile_cap (float): Percentile to cap the scaling at.
         Returns:
             np.ndarray: Array scaled to the [0, 1] range.
         """
         center_value = 0.5
+        cap_value = np.nanpercentile(values, percentile_cap)
+        values = np.clip(values, None, cap_value)
         if np.all(np.isnan(values)):
             return np.full_like(values, center_value)
-        vmin, vmax = np.nanmin(values), np.nanmax(values)
+        vmin, vmax = 0, np.nanmax(values)
         if np.isnan(vmin) or np.isnan(vmax) or vmax == vmin:
             return np.full_like(values, center_value)
         return (values - vmin) / (vmax - vmin)
@@ -336,10 +373,12 @@ def load_config(config_path: str) -> Tuple[DataSnapshot, SimulationConfig]:
     with open(config_path, 'r') as f:
         ycfg = yaml.safe_load(f)
 
+    yaml_name = config_path.split('/')[-1]
     ds = DataSnapshot(
         data_dir=ycfg['data_snapshot'].get('data_dir', "eval-algos/S7/data/onchain_testing"),
         projects_file=ycfg['data_snapshot'].get('projects_file', "projects_v1.csv"),
-        metrics_file=ycfg['data_snapshot'].get('metrics_file', "onchain_metrics_by_project.csv")
+        metrics_file=ycfg['data_snapshot'].get('metrics_file', "onchain_metrics_by_project.csv"),
+        yaml_name=yaml_name
     )
 
     sim = ycfg.get('simulation', {})
@@ -347,7 +386,9 @@ def load_config(config_path: str) -> Tuple[DataSnapshot, SimulationConfig]:
         periods=sim.get('periods', {}),
         chains=sim.get('chains', {}),
         metrics=sim.get('metrics', {}),
-        metric_variants=sim.get('metric_variants', {})
+        metric_variants=sim.get('metric_variants', {}),
+        tvl_minimum=sim.get('tvl_minimum', 0),
+        eligibility_filter=sim.get('eligibility_filter', False)
     )
 
     return ds, sc
@@ -375,11 +416,11 @@ def load_data(ds: DataSnapshot) -> pd.DataFrame:
     # Derive measurement_period if not present
     if 'measurement_period' not in df_metrics.columns:
         df_metrics['measurement_period'] = pd.to_datetime(df_metrics['sample_date']).dt.strftime('%b %Y')
-        df_merged = df_metrics.merge(df_projects, on='project_id', how='left')
-        return df_merged
-    else:
-        return df_metrics
-
+    
+    cols = [c for c in df_projects.columns
+            if c in ['project_id', 'is_eligible']]
+    df_merged = df_metrics.merge(df_projects[cols], on='project_id', how='left')
+    return df_merged
 
 # ------------------------------------------------------------------------
 # Main Pipeline Entry-Point and Serialization
@@ -397,7 +438,7 @@ def run_simulation(config_path: str) -> Dict[str, Any]:
     """
     ds, sim_cfg = load_config(config_path)
     df_data = load_data(ds)
-
+    
     calculator = OnchainBuildersCalculator(sim_cfg)
     analysis = calculator.run_analysis(df_data)
 
@@ -420,7 +461,9 @@ def save_results(analysis: Dict[str, Any]) -> None:
         print("No DataSnapshot found; skipping file output.")
         return
 
-    out_path = f"{ds.data_dir}/onchain_builders_testing_results.csv"
+    # Use the actual YAML name from the data snapshot
+    yaml_base = ds.yaml_name.replace('.yaml', '')
+    out_path = f"{ds.data_dir}/{yaml_base}_results.csv"
     try:
         analysis["final_results"].to_csv(out_path, index=True)
         print(f"[INFO] Saved onchain builders results to {out_path}")

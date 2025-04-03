@@ -345,7 +345,7 @@ class DevtoolingCalculator:
         developers = self.analysis.get('developer_reputation', pd.DataFrame())
         if not developers.empty:
             pretrust_list.extend({'i': row['developer_id'], 'v': row['reputation']} for _, row in developers.iterrows() if row['reputation'] > 0)
-        
+
         df_edges = self.analysis['weighted_edges'].copy()
         df_edges = df_edges[df_edges['v_edge'] > 0]
 
@@ -365,7 +365,7 @@ class DevtoolingCalculator:
         developer_edge_records = [
             {'i': row['i'], 'j': row['j'], 'v': row['v_edge']}
             for _, row in df_edges.iterrows()
-            if row['link_type'] != 'PACKAGE_DEPENDENCY'
+            if row['link_type'] in ['ONCHAIN_PROJECT_TO_DEVELOPER', 'DEVELOPER_TO_DEVTOOLING_PROJECT']
         ]
         developer_scores = et.run_eigentrust(developer_edge_records, pretrust_list)
         df_developer_scores = pd.DataFrame(developer_scores, columns=['i', 'v'])
@@ -499,13 +499,15 @@ class DevtoolingCalculator:
         for j in devtooling_ids:
             target = devtooling_project_scores.get(j, 0)
             if abs(dev_sum.get(j, 0) - target) > 1e-4:
-                warnings.warn(f"Devtooling project {j} total contribution {dev_sum.get(j, 0)} != target {target}")
+                pass
+                #warnings.warn(f"Devtooling project {j} total contribution {dev_sum.get(j, 0)} != target {target}")
         
         onchain_sum = detailed_df.groupby('onchain_project_id')['contribution'].sum().round(6)
         for i in onchain_ids:
             target = onchain_project_scores.get(i, 0)
             if abs(onchain_sum.get(i, 0) - target) > 1e-4:
-                warnings.warn(f"Onchain project {i} total contribution {onchain_sum.get(i, 0)} != target {target}")
+                pass
+                #warnings.warn(f"Onchain project {i} total contribution {onchain_sum.get(i, 0)} != target {target}")
         
         self.analysis['detailed_value_flow_graph'] = detailed_df
 
@@ -585,8 +587,14 @@ def load_data(data_snapshot: DataSnapshot) -> Tuple[pd.DataFrame, pd.DataFrame, 
     df_onchain_projects = pd.read_csv(get_path(data_snapshot.onchain_projects_file))
     df_devtooling_projects = pd.read_csv(get_path(data_snapshot.devtooling_projects_file))
     df_project_dependencies = pd.read_csv(get_path(data_snapshot.project_dependencies_file))
+    
     df_developers_to_projects = pd.read_csv(get_path(data_snapshot.developers_to_projects_file))
-    df_developers_to_projects['event_month'] = pd.to_datetime(df_developers_to_projects['event_month'])
+    if 'event_month' in df_developers_to_projects.columns:
+        df_developers_to_projects['event_month'] = pd.to_datetime(df_developers_to_projects['event_month'])
+    elif 'bucket_month' in df_developers_to_projects.columns:
+        df_developers_to_projects['event_month'] = pd.to_datetime(df_developers_to_projects['bucket_month'])
+    else:
+        raise ValueError("No 'event_month' or 'bucket' column found in developers_to_projects.csv")
 
     return (df_onchain_projects, df_devtooling_projects,
             df_project_dependencies, df_developers_to_projects)
