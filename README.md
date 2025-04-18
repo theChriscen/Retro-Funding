@@ -87,8 +87,8 @@ The available **metrics** can be found in the `onchain_metrics_by_project.csv` f
 Then, from the root directory, run:
 
 ```bash
-python eval-algos/S7/models/onchain_builders.py
-python eval-algos/S7/models/devtooling_openrank.py
+poetry run python eval-algos/S7/models/onchain_builders.py
+poetry run python eval-algos/S7/models/devtooling_openrank.py
 ```
 
 This will run the model and save the results to the corresponding data directories using the default "testing" data and weights.
@@ -96,21 +96,21 @@ This will run the model and save the results to the corresponding data directori
 To run the model with an existing set of data and weights, include the YAML config file as an argument:
 
 ```bash
-python eval-algos/S7/models/onchain_builders.py onchain_builders_goldilocks.yaml
-python eval-algos/S7/models/devtooling_openrank.py devtooling_arcturus.yaml
+poetry run python eval-algos/S7/models/onchain_builders.py onchain_builders_goldilocks.yaml
+poetry run python eval-algos/S7/models/devtooling_openrank.py devtooling_arcturus.yaml
 ```
 
 You can now make your own changes to the weights and run the pipeline again, eg:
 
 ```bash
-python eval-algos/S7/models/onchain_builders.py <my_weights.yaml>
+poetry run python eval-algos/S7/models/onchain_builders.py <my_weights.yaml>
 ```
 
 You can also simulate the funding allocation process by running:
 
 ```bash
-python eval-algos/scripts/process_onchain_builders.py <my_weights.yaml>
-python eval-algos/scripts/process_devtooling_openrank.py <my_weights.yaml>
+poetry run python eval-algos/scripts/process_onchain_builders.py <my_weights.yaml>
+poetry run python eval-algos/scripts/process_devtooling_openrank.py <my_weights.yaml>
 ```
 
 Note that the budget and min/max caps are hardcoded in the scripts, so you will need to make any changes to the budget or caps directly in the scripts for now.
