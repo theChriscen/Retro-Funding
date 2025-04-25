@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import argparse
+import json
 import os
 import sys
 from pathlib import Path
@@ -28,7 +29,7 @@ if not OSO_API_KEY:
 # Initialize OSO client
 client = Client(api_key=OSO_API_KEY)
 
-def get_output_path(measurement_period, filename):
+def get_output_path(measurement_period, filename, filetype):
     """
     Get the output path for a given measurement period and filename.
     
@@ -47,24 +48,36 @@ def get_output_path(measurement_period, filename):
     os.makedirs(data_dir, exist_ok=True)
     
     # Return the full path
-    return os.path.join(data_dir, f"{filename}.csv")
+    return os.path.join(data_dir, f"{filename}.{filetype}")
 
 def execute_query(query_obj, measurement_period):
     """
-    Execute a query and save the results to a CSV file.
+    Execute a query and save the results to a CSV or JSON file based on the filetype.
     
     Args:
-        query_obj: The query object containing the filename and SQL query
+        query_obj: The query object containing the filename, filetype, and SQL query
         measurement_period: The measurement period (e.g., 'M1', 'M2')
     """
     query_sql = query_obj["query"]
     filename = query_obj["filename"]
-    output_path = get_output_path(measurement_period, filename)
+    filetype = query_obj.get("filetype", "csv")
+    output_path = get_output_path(measurement_period, filename, filetype)
     
     print(f"Executing query for {filename}...")
     try:
         dataframe = client.to_pandas(query_sql)
-        dataframe.to_csv(output_path, index=False)
+        
+        # Export based on filetype
+        if filetype.lower() == "csv":
+            dataframe.to_csv(output_path, index=False)
+        elif filetype.lower() == "json":
+            json_str = dataframe.to_json(orient='records', indent=2)
+            clean_json_str = json_str.replace('\\/', '/')
+            with open(output_path, 'w') as file:
+                file.write(clean_json_str)
+        else:
+            raise ValueError(f"Unsupported filetype: {filetype}")
+            
         print(f"✓ Saved {output_path}")
     except Exception as e:
         print(f"✗ Error executing query for {filename}: {str(e)}")
