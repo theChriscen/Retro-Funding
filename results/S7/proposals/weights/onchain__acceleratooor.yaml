@@ -1,0 +1,44 @@
+# ----------------------------------------------------
+# Onchain Builders - Acceleratooor
+# ----------------------------------------------------
+
+data_snapshot:
+  data_dir: 'results/S7/proposals/data/'
+  projects_file: 'onchain__project_metadata.csv'
+  metrics_file: 'onchain__metrics_by_project.csv'
+
+simulation:
+  periods:
+    previous: 'Dec 2024'
+    current: 'Jan 2025'
+  
+  # Chain weights (1.0 = full weight)
+  chains:
+    base: 1.0
+    optimism: 1.0
+  
+  # Metric weights must sum to 1.0
+  metrics:
+    trace_count: 0.30
+    monthly_average_tvl: 0.40
+    transaction_count_bot_filtered: 0.00
+    transaction_count_amortized_bot_filtered: 0.00
+    trace_count_bot_filtered: 0.00    
+    
+    amortized_gas_fee: 0.20
+    transaction_gas_fee: 0.00
+    
+    monthly_active_farcaster_users: 0.10
+    monthly_active_addresses: 0.00
+    monthly_active_addresses_bot_filtered: 0.00
+  
+  # Variant weights must sum to 1.0
+  metric_variants:
+    adoption: 0.00    # Current period value
+    growth: 0.80      # Change from previous period
+    retention: 0.20   # Minimum of current and previous
+
+allocation:
+  budget: 1333333.3333333333
+  min_amount_per_project: 200
+  max_share_per_project: 0.05
