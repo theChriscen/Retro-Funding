@@ -34,6 +34,7 @@ class SimulationConfig:
     metric_variants: Dict[str, float]
     tvl_minimum: float = 0 
     eligibility_filter: bool = False
+    percentile_cap: float = 100
 
 
 # ------------------------------------------------------------------------
@@ -67,7 +68,6 @@ class OnchainBuildersCalculator:
         if self.config.eligibility_filter:
             print(f"[INFO] Eligibility filter: {self.config.eligibility_filter}")
             df_data = df_data[df_data['is_eligible'] == True]
-            print(f"[INFO] Filtered out {len(df_data)} ineligible projects")
         self.analysis = {"raw_data": df_data}
 
         # Execute pipeline steps
@@ -214,7 +214,7 @@ class OnchainBuildersCalculator:
             raise ValueError("Metric variants not computed. Check Step 3.")
         df_norm = df.copy()
         for col in df_norm.columns:
-            df_norm[col] = OnchainBuildersCalculator._minmax_scale(df_norm[col].values)
+            df_norm[col] = OnchainBuildersCalculator._minmax_scale(df_norm[col].values, self.config.percentile_cap)
         self.analysis["normalized_metric_variants"] = df_norm
 
     # --------------------------------------------------------------------
@@ -335,25 +335,33 @@ class OnchainBuildersCalculator:
     # Helper: MinMax Scaling (Static Method)
     # --------------------------------------------------------------------
     @staticmethod
-    def _minmax_scale(values: np.ndarray, percentile_cap: float = 97) -> np.ndarray:
+    def _minmax_scale(values: np.ndarray, percentile_cap: float = 100) -> np.ndarray:
         """
-        Applies min-max scaling to an array of numeric values with a fallback center value if the range is zero.
-
+        Scale values to [0,1] range using min-max scaling with optional percentile capping.
+        
         Args:
-            values (np.ndarray): Input numeric array.
-            percentile_cap (float): Percentile to cap the scaling at.
+            values: Array of values to scale
+            percentile_cap: Percentile to cap values at (default: 100, meaning no cap)
+            
         Returns:
-            np.ndarray: Array scaled to the [0, 1] range.
+            Array of scaled values in [0,1] range
         """
-        center_value = 0.5
-        cap_value = np.nanpercentile(values, percentile_cap)
-        values = np.clip(values, None, cap_value)
-        if np.all(np.isnan(values)):
-            return np.full_like(values, center_value)
-        vmin, vmax = 0, np.nanmax(values)
-        if np.isnan(vmin) or np.isnan(vmax) or vmax == vmin:
-            return np.full_like(values, center_value)
-        return (values - vmin) / (vmax - vmin)
+        if len(values) == 0:
+            return values
+            
+        # Cap values at specified percentile if less than 100
+        if percentile_cap < 100:
+            cap_value = np.percentile(values, percentile_cap)
+            values = np.minimum(values, cap_value)
+            
+        # Min-max scale to [0,1]
+        min_val = np.min(values)
+        max_val = np.max(values)
+        
+        if max_val == min_val:
+            return np.ones_like(values)
+            
+        return (values - min_val) / (max_val - min_val)
 
 
 # ------------------------------------------------------------------------
@@ -388,7 +396,8 @@ def load_config(config_path: str) -> Tuple[DataSnapshot, SimulationConfig]:
         metrics=sim.get('metrics', {}),
         metric_variants=sim.get('metric_variants', {}),
         tvl_minimum=sim.get('tvl_minimum', 0),
-        eligibility_filter=sim.get('eligibility_filter', False)
+        eligibility_filter=sim.get('eligibility_filter', False),
+        percentile_cap=sim.get('percentile_cap', 100)
     )
 
     return ds, sc

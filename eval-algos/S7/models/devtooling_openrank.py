@@ -549,11 +549,11 @@ def load_config(config_path: str) -> Tuple[DataSnapshot, SimulationConfig]:
         config = yaml.safe_load(f)
 
     data_snapshot = DataSnapshot(
-        data_dir=config['data_snapshot'].get('data_dir', "eval-algos/S7/data/devtooling_testing_v3"),
-        onchain_projects_file=config['data_snapshot'].get('onchain_projects_file', "onchain_projects.csv"),
-        devtooling_projects_file=config['data_snapshot'].get('devtooling_projects_file', "devtooling_projects.csv"),
-        project_dependencies_file=config['data_snapshot'].get('project_dependencies_file', "project_dependencies.csv"),
-        developers_to_projects_file=config['data_snapshot'].get('developers_to_projects_file', "developers_to_projects.csv")
+        data_dir=config['data_snapshot']['data_dir'],
+        onchain_projects_file=config['data_snapshot']['onchain_projects'],
+        devtooling_projects_file=config['data_snapshot']['devtooling_projects'],
+        project_dependencies_file=config['data_snapshot']['project_dependencies'],
+        developers_to_projects_file=config['data_snapshot']['developers_to_projects']
     )
 
     sim_config = config.get('simulation', {})
