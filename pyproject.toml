@@ -14,6 +14,9 @@ db-dtypes = "^1.4.0"
 pyyaml = "^6.0.2"
 networkx = "^3.4.2"
 openrank-sdk = "^0.4.0"
+python-dotenv = "^1.1.0"
+pyoso = "^0.4.0"
+httpx = "0.24.1"
 
 
 [build-system]
