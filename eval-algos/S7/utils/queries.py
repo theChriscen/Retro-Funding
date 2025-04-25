@@ -1,11 +1,11 @@
 """
 This module contains all the SQL queries used to fetch data from OSO.
-Each query is associated with a specific CSV file that will be generated.
 """
 
 QUERIES = [
     {
         "filename": "onchain__project_metadata",
+        "filetype": "csv",
         "query": """
             SELECT
                 p.project_id,
@@ -26,6 +26,7 @@ QUERIES = [
     },
     {
         "filename": "onchain__metrics_by_project",
+        "filetype": "csv",
         "query": """
             SELECT
                 m.project_id,
@@ -47,6 +48,7 @@ QUERIES = [
     },
     {
         "filename": "devtooling__project_metadata",
+        "filetype": "csv",
         "query": """
             SELECT 
                 project_id,
@@ -61,6 +63,7 @@ QUERIES = [
     },
     {
         "filename": "devtooling__onchain_metadata",
+        "filetype": "csv",
         "query": """
             SELECT DISTINCT
                 b.project_id,
@@ -76,6 +79,7 @@ QUERIES = [
     },
     {
         "filename": "devtooling__dependency_graph",
+        "filetype": "csv",
         "query": """
             SELECT *
             FROM int_superchain_s7_devtooling_deps_to_projects_graph
@@ -83,9 +87,18 @@ QUERIES = [
     },
     {
         "filename": "devtooling__developer_graph",
+        "filetype": "csv",
         "query": """
             SELECT *
             FROM int_superchain_s7_devtooling_devs_to_projects_graph
+        """
+    },
+    {
+        "filename": "devtooling__raw_metrics",
+        "filetype": "json",
+        "query": """
+            SELECT * 
+            FROM int_superchain_s7_devtooling_metrics_by_project
         """
     },
 ] 
