@@ -75,6 +75,7 @@ def serialize_devtooling_results(measurement_period: str, df_rewards: Optional[p
                 on='op_atlas_id',
                 how='outer'
             )
+    df_merged['round_id'] = '7'
 
     # Serialize and save results
     clean_json_str = clean_json(df_merged)
@@ -134,6 +135,7 @@ def serialize_onchain_results(measurement_period: str, df_rewards: Optional[pd.D
     
     # Clean up and prepare data
     df_merged['is_eligible'] = df_merged['is_eligible'].fillna(False)
+    df_merged['round_id'] = '8'
     
     # Serialize and save results
     clean_json_str = clean_json(df_merged)
