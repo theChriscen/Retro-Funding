@@ -105,7 +105,6 @@ def serialize_onchain_results(measurement_period: str, df_rewards: Optional[pd.D
     # Read onchain project metadata
     onchain_metadata_path = os.path.join(data_dir, "onchain__project_metadata.csv")
     df_metrics = pd.read_csv(onchain_metadata_path)
-    
     # Rename columns
     if 'project_id' in df_metrics.columns:
         df_metrics = df_metrics.rename(columns={'project_id': 'oso_project_id'})
@@ -137,6 +136,19 @@ def serialize_onchain_results(measurement_period: str, df_rewards: Optional[pd.D
     df_merged['is_eligible'] = df_merged['is_eligible'].fillna(False)
     df_merged['round_id'] = '8'
     
+    try:
+        df_snapshot_metrics = pd.read_csv(os.path.join(data_dir, "onchain__summary_metric_snapshot.csv"))
+        df_snapshot_metrics = df_snapshot_metrics.pivot_table(
+            index='op_atlas_id',
+            columns='metric_name', 
+            values='amount',
+            aggfunc='sum'
+        ).reset_index()
+        df_merged = df_merged.merge(df_snapshot_metrics, on='op_atlas_id', how='left')
+
+    except FileNotFoundError:
+        print("No snapshot metrics found, will serialize with null metrics")
+
     # Serialize and save results
     clean_json_str = clean_json(df_merged)
     output_path = os.path.join(outputs_dir, "onchain__results.json")
