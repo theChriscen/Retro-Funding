@@ -146,6 +146,49 @@ def serialize_onchain_results(measurement_period: str, df_rewards: Optional[pd.D
         ).reset_index()
         df_merged = df_merged.merge(df_snapshot_metrics, on='op_atlas_id', how='left')
 
+        # Initialize new columns
+        df_merged['eligibility_metrics'] = None
+        df_merged['monthly_metrics'] = None
+        
+        # First, collect all possible monthly metrics across all projects
+        all_monthly_metrics = set()
+        for col in df_merged.columns:
+            if isinstance(col, str) and '__' in col and any(month in col.lower() for month in ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec']):
+                base_metric = col.split('__')[0]
+                all_monthly_metrics.add(base_metric)
+        
+        # Process each row to create nested metrics
+        for idx, row in df_merged.iterrows():
+            # Create monthly_metrics record first (metrics with month suffix)
+            monthly_dict = {}
+            # Initialize all possible monthly metrics as null
+            for metric in all_monthly_metrics:
+                monthly_dict[metric] = None
+            
+            # Fill in the actual values where they exist
+            for col in row.index:
+                if isinstance(col, str) and '__' in col and any(month in col.lower() for month in ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec']):
+                    if pd.notna(row[col]):
+                        base_metric = col.split('__')[0]
+                        monthly_dict[base_metric] = row[col]
+            
+            # Create eligibility_metrics record with remaining metrics
+            eligibility_metrics = ['active_days', 'gas_fees', 'transaction_count', 'active_addresses_count', 'contract_invocations']
+            eligibility_dict = {}
+            for metric in eligibility_metrics:
+                if metric in row and pd.notna(row[metric]):
+                    eligibility_dict[metric] = row[metric]
+            
+            # Update the row with nested metrics
+            df_merged.at[idx, 'eligibility_metrics'] = eligibility_dict
+            df_merged.at[idx, 'monthly_metrics'] = monthly_dict
+            
+            # Remove the original metric columns
+            for col in row.index:
+                if isinstance(col, str) and (('__' in col and any(month in col.lower() for month in ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'])) or col in eligibility_metrics):
+                    if col in df_merged.columns:
+                        df_merged = df_merged.drop(columns=[col])
+
     except FileNotFoundError:
         print("No snapshot metrics found, will serialize with null metrics")
 
