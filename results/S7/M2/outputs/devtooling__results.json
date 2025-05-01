@@ -63,6 +63,7 @@
       "saucepoint",
       "0xtimepunk"
     ],
+    "downstream_gas":2714.3330253402,
     "op_reward":3736.9,
     "round_id":"7"
   },
@@ -88,6 +89,7 @@
       "chase-manning",
       "insulineru"
     ],
+    "downstream_gas":3.4643237869,
     "op_reward":0.0,
     "round_id":"7"
   },
@@ -129,6 +131,7 @@
       "bout3fiddy",
       "pcaversaccio"
     ],
+    "downstream_gas":37.7117132998,
     "op_reward":1026.6,
     "round_id":"7"
   },
@@ -177,6 +180,7 @@
       "hazim-j",
       "mathisgd"
     ],
+    "downstream_gas":1043.2475204558,
     "op_reward":2152.24,
     "round_id":"7"
   },
@@ -199,6 +203,7 @@
     "trusted_developer_usernames":[
 
     ],
+    "downstream_gas":0.0,
     "op_reward":0.0,
     "round_id":"7"
   },
@@ -221,6 +226,7 @@
     "trusted_developer_usernames":[
       "tamararingas"
     ],
+    "downstream_gas":1.087272586,
     "op_reward":0.0,
     "round_id":"7"
   },
@@ -243,6 +249,7 @@
     "trusted_developer_usernames":[
       "ggomaeng"
     ],
+    "downstream_gas":0.0,
     "op_reward":0.0,
     "round_id":"7"
   },
@@ -265,6 +272,7 @@
     "trusted_developer_usernames":[
 
     ],
+    "downstream_gas":0.0,
     "op_reward":0.0,
     "round_id":"7"
   },
@@ -287,6 +295,7 @@
     "trusted_developer_usernames":[
 
     ],
+    "downstream_gas":0.0,
     "op_reward":0.0,
     "round_id":"7"
   },
@@ -309,6 +318,7 @@
     "trusted_developer_usernames":[
 
     ],
+    "downstream_gas":0.0,
     "op_reward":0.0,
     "round_id":"7"
   },
@@ -331,6 +341,7 @@
     "trusted_developer_usernames":[
 
     ],
+    "downstream_gas":0.0,
     "op_reward":0.0,
     "round_id":"7"
   },
@@ -356,6 +367,7 @@
       "mrtenz",
       "nikitavr"
     ],
+    "downstream_gas":23.5636220131,
     "op_reward":0.0,
     "round_id":"7"
   },
@@ -418,6 +430,7 @@
       "ink-victor",
       "pcaversaccio"
     ],
+    "downstream_gas":2478.1859726622,
     "op_reward":27268.38,
     "round_id":"7"
   },
@@ -444,6 +457,7 @@
       "pcaversaccio",
       "vectorized"
     ],
+    "downstream_gas":23.3530373645,
     "op_reward":0.0,
     "round_id":"7"
   },
@@ -506,6 +520,7 @@
       "shanefontaine",
       "0age"
     ],
+    "downstream_gas":2495.3339235812,
     "op_reward":3187.81,
     "round_id":"7"
   },
@@ -528,6 +543,7 @@
     "trusted_developer_usernames":[
 
     ],
+    "downstream_gas":0.0,
     "op_reward":0.0,
     "round_id":"7"
   },
@@ -564,6 +580,7 @@
       "ggomaeng",
       "haf-decent"
     ],
+    "downstream_gas":7.8147659615,
     "op_reward":0.0,
     "round_id":"7"
   },
@@ -586,6 +603,7 @@
     "trusted_developer_usernames":[
 
     ],
+    "downstream_gas":0.0,
     "op_reward":0.0,
     "round_id":"7"
   },
@@ -608,6 +626,7 @@
     "trusted_developer_usernames":[
       "jpcloureiro"
     ],
+    "downstream_gas":23.5025012881,
     "op_reward":0.0,
     "round_id":"7"
   },
@@ -630,6 +649,7 @@
     "trusted_developer_usernames":[
 
     ],
+    "downstream_gas":0.0,
     "op_reward":0.0,
     "round_id":"7"
   },
@@ -669,6 +689,7 @@
       "jjranalli",
       "heswithme"
     ],
+    "downstream_gas":3.5405147139,
     "op_reward":11119.31,
     "round_id":"7"
   },
@@ -709,6 +730,7 @@
       "derekbar90",
       "nlordell"
     ],
+    "downstream_gas":59.2655948895,
     "op_reward":1860.87,
     "round_id":"7"
   },
@@ -731,6 +753,7 @@
     "trusted_developer_usernames":[
 
     ],
+    "downstream_gas":0.0,
     "op_reward":0.0,
     "round_id":"7"
   },
@@ -753,6 +776,7 @@
     "trusted_developer_usernames":[
 
     ],
+    "downstream_gas":0.0,
     "op_reward":0.0,
     "round_id":"7"
   },
@@ -775,6 +799,7 @@
     "trusted_developer_usernames":[
 
     ],
+    "downstream_gas":0.0,
     "op_reward":0.0,
     "round_id":"7"
   },
@@ -803,6 +828,7 @@
       "mathisgd",
       "pcaversaccio"
     ],
+    "downstream_gas":15.7424265558,
     "op_reward":0.0,
     "round_id":"7"
   },
@@ -825,6 +851,7 @@
     "trusted_developer_usernames":[
 
     ],
+    "downstream_gas":0.0,
     "op_reward":0.0,
     "round_id":"7"
   },
@@ -1090,6 +1117,7 @@
       "derekbar90",
       "remedcu"
     ],
+    "downstream_gas":25178.348949114,
     "op_reward":52258.35,
     "round_id":"7"
   },
@@ -1127,6 +1155,7 @@
       "mo-hussain",
       "hellwolf"
     ],
+    "downstream_gas":50.0864425215,
     "op_reward":697.25,
     "round_id":"7"
   },
@@ -1149,6 +1178,7 @@
     "trusted_developer_usernames":[
 
     ],
+    "downstream_gas":0.0,
     "op_reward":0.0,
     "round_id":"7"
   },
@@ -1171,6 +1201,7 @@
     "trusted_developer_usernames":[
 
     ],
+    "downstream_gas":0.0,
     "op_reward":0.0,
     "round_id":"7"
   },
@@ -1193,6 +1224,7 @@
     "trusted_developer_usernames":[
 
     ],
+    "downstream_gas":0.0,
     "op_reward":0.0,
     "round_id":"7"
   },
@@ -1215,6 +1247,7 @@
     "trusted_developer_usernames":[
 
     ],
+    "downstream_gas":0.0,
     "op_reward":0.0,
     "round_id":"7"
   },
@@ -1237,6 +1270,7 @@
     "trusted_developer_usernames":[
 
     ],
+    "downstream_gas":0.0,
     "op_reward":0.0,
     "round_id":"7"
   },
@@ -1259,6 +1293,7 @@
     "trusted_developer_usernames":[
 
     ],
+    "downstream_gas":0.0,
     "op_reward":0.0,
     "round_id":"7"
   },
@@ -1285,6 +1320,7 @@
       "nandyba",
       "marczeller"
     ],
+    "downstream_gas":6.4529124426,
     "op_reward":1524.52,
     "round_id":"7"
   },
@@ -1400,6 +1436,7 @@
       "zak3939",
       "mendesfabio"
     ],
+    "downstream_gas":4354.2282239758,
     "op_reward":28084.9,
     "round_id":"7"
   },
@@ -1422,6 +1459,7 @@
     "trusted_developer_usernames":[
 
     ],
+    "downstream_gas":0.0,
     "op_reward":0.0,
     "round_id":"7"
   },
@@ -1493,6 +1531,7 @@
       "a1740942002",
       "miguelmota"
     ],
+    "downstream_gas":192.8701272055,
     "op_reward":17940.58,
     "round_id":"7"
   },
@@ -1515,6 +1554,7 @@
     "trusted_developer_usernames":[
 
     ],
+    "downstream_gas":0.0,
     "op_reward":0.0,
     "round_id":"7"
   },
@@ -1557,6 +1597,7 @@
       "halaprix",
       "pcaversaccio"
     ],
+    "downstream_gas":6.0973276057,
     "op_reward":1335.03,
     "round_id":"7"
   },
@@ -1579,6 +1620,7 @@
     "trusted_developer_usernames":[
 
     ],
+    "downstream_gas":0.0,
     "op_reward":0.0,
     "round_id":"7"
   },
@@ -1605,6 +1647,7 @@
       "screaminghawk",
       "0xosiris"
     ],
+    "downstream_gas":0.1793921424,
     "op_reward":0.0,
     "round_id":"7"
   },
@@ -1630,6 +1673,7 @@
       "oyyblin",
       "hzhu"
     ],
+    "downstream_gas":51.4183955028,
     "op_reward":0.0,
     "round_id":"7"
   },
@@ -1652,6 +1696,7 @@
     "trusted_developer_usernames":[
 
     ],
+    "downstream_gas":0.0,
     "op_reward":0.0,
     "round_id":"7"
   },
@@ -1674,6 +1719,7 @@
     "trusted_developer_usernames":[
 
     ],
+    "downstream_gas":0.0,
     "op_reward":0.0,
     "round_id":"7"
   },
@@ -1712,6 +1758,7 @@
       "yuripetusko",
       "cruzdanilo"
     ],
+    "downstream_gas":1075.3469846205,
     "op_reward":1237.03,
     "round_id":"7"
   },
@@ -1811,6 +1858,7 @@
     "trusted_developer_usernames":[
       "pcaversaccio"
     ],
+    "downstream_gas":1856.6183269172,
     "op_reward":15161.97,
     "round_id":"7"
   },
@@ -1833,6 +1881,7 @@
     "trusted_developer_usernames":[
 
     ],
+    "downstream_gas":0.0,
     "op_reward":0.0,
     "round_id":"7"
   },
@@ -1855,6 +1904,7 @@
     "trusted_developer_usernames":[
 
     ],
+    "downstream_gas":0.0,
     "op_reward":0.0,
     "round_id":"7"
   },
@@ -1877,6 +1927,7 @@
     "trusted_developer_usernames":[
 
     ],
+    "downstream_gas":0.0,
     "op_reward":0.0,
     "round_id":"7"
   },
@@ -1909,6 +1960,7 @@
       "codyborn",
       "arkoc"
     ],
+    "downstream_gas":3448.4493039779,
     "op_reward":0.0,
     "round_id":"7"
   },
@@ -2196,6 +2248,7 @@
       "suhailgme",
       "shanefontaine"
     ],
+    "downstream_gas":25323.8874213011,
     "op_reward":57714.45,
     "round_id":"7"
   },
@@ -2218,6 +2271,7 @@
     "trusted_developer_usernames":[
       "gaurav-rp"
     ],
+    "downstream_gas":0.4205386028,
     "op_reward":0.0,
     "round_id":"7"
   },
@@ -2240,6 +2294,7 @@
     "trusted_developer_usernames":[
 
     ],
+    "downstream_gas":0.0,
     "op_reward":0.0,
     "round_id":"7"
   },
@@ -2267,6 +2322,7 @@
       "nkrishang",
       "cruzdanilo"
     ],
+    "downstream_gas":1052.4181491459,
     "op_reward":0.0,
     "round_id":"7"
   },
@@ -2289,6 +2345,7 @@
     "trusted_developer_usernames":[
       "defispartan"
     ],
+    "downstream_gas":6.4529124426,
     "op_reward":0.0,
     "round_id":"7"
   },
@@ -2315,6 +2372,7 @@
       "remedcu",
       "mathisgd"
     ],
+    "downstream_gas":22.2657647785,
     "op_reward":0.0,
     "round_id":"7"
   },
@@ -2342,6 +2400,7 @@
       "yorhodes",
       "encrypteddegen"
     ],
+    "downstream_gas":34.7622064124,
     "op_reward":0.0,
     "round_id":"7"
   },
@@ -2411,6 +2470,7 @@
       "martinkrung",
       "pegahcarter"
     ],
+    "downstream_gas":1115.7140329567,
     "op_reward":12620.74,
     "round_id":"7"
   },
@@ -2449,6 +2509,7 @@
       "paulrberg",
       "shriyatyagii"
     ],
+    "downstream_gas":69.6386268439,
     "op_reward":1095.0,
     "round_id":"7"
   },
@@ -2471,6 +2532,7 @@
     "trusted_developer_usernames":[
 
     ],
+    "downstream_gas":0.0,
     "op_reward":0.0,
     "round_id":"7"
   },
@@ -2541,6 +2603,7 @@
       "tiendn",
       "jaredborders"
     ],
+    "downstream_gas":110.5938032091,
     "op_reward":20550.63,
     "round_id":"7"
   },
@@ -2591,6 +2654,7 @@
       "paulrberg",
       "mirthfutures"
     ],
+    "downstream_gas":107.846918346,
     "op_reward":3385.6,
     "round_id":"7"
   },
@@ -2613,6 +2677,7 @@
     "trusted_developer_usernames":[
 
     ],
+    "downstream_gas":0.0,
     "op_reward":0.0,
     "round_id":"7"
   },
@@ -2667,6 +2732,7 @@
       "vectorized",
       "npty"
     ],
+    "downstream_gas":1082.6682204598,
     "op_reward":11078.53,
     "round_id":"7"
   },
@@ -2738,6 +2804,7 @@
       "shanefontaine",
       "georgeroman"
     ],
+    "downstream_gas":414.3668679633,
     "op_reward":2102.82,
     "round_id":"7"
   },
@@ -2760,6 +2827,7 @@
     "trusted_developer_usernames":[
 
     ],
+    "downstream_gas":0.0,
     "op_reward":0.0,
     "round_id":"7"
   },
@@ -2782,6 +2850,7 @@
     "trusted_developer_usernames":[
 
     ],
+    "downstream_gas":0.0,
     "op_reward":0.0,
     "round_id":"7"
   },
@@ -2838,6 +2907,7 @@
       "naure",
       "ryanio"
     ],
+    "downstream_gas":465.9960321709,
     "op_reward":23548.32,
     "round_id":"7"
   },
@@ -2894,6 +2964,7 @@
       "shuhuiluo",
       "chase-manning"
     ],
+    "downstream_gas":11.2331996329,
     "op_reward":4292.96,
     "round_id":"7"
   },
@@ -2924,6 +2995,7 @@
       "michwill",
       "shanefontaine"
     ],
+    "downstream_gas":35.8907192839,
     "op_reward":0.0,
     "round_id":"7"
   },
@@ -2946,6 +3018,7 @@
     "trusted_developer_usernames":[
       "pcaversaccio"
     ],
+    "downstream_gas":0.0,
     "op_reward":0.0,
     "round_id":"7"
   },
@@ -3005,6 +3078,7 @@
       "mykcryptodev",
       "m1guelpf"
     ],
+    "downstream_gas":111.1763995842,
     "op_reward":8285.19,
     "round_id":"7"
   },
@@ -3027,6 +3101,7 @@
     "trusted_developer_usernames":[
 
     ],
+    "downstream_gas":0.0,
     "op_reward":0.0,
     "round_id":"7"
   },
@@ -3049,6 +3124,7 @@
     "trusted_developer_usernames":[
 
     ],
+    "downstream_gas":0.0,
     "op_reward":0.0,
     "round_id":"7"
   },
@@ -3354,6 +3430,7 @@
       "pcaversaccio",
       "frederikbolding"
     ],
+    "downstream_gas":25316.3132451132,
     "op_reward":66666.67,
     "round_id":"7"
   },
@@ -3381,6 +3458,7 @@
       "calebbanister",
       "linkdrone"
     ],
+    "downstream_gas":4.5115177437,
     "op_reward":0.0,
     "round_id":"7"
   },
@@ -3403,6 +3481,7 @@
     "trusted_developer_usernames":[
 
     ],
+    "downstream_gas":0.0,
     "op_reward":0.0,
     "round_id":"7"
   },
@@ -3457,6 +3536,7 @@
       "georgeroman",
       "0xosiris"
     ],
+    "downstream_gas":129.7398657353,
     "op_reward":6625.33,
     "round_id":"7"
   },
@@ -3479,6 +3559,7 @@
     "trusted_developer_usernames":[
 
     ],
+    "downstream_gas":0.0,
     "op_reward":0.0,
     "round_id":"7"
   },
@@ -3845,6 +3926,7 @@
       "kevincheng96",
       "albertov19"
     ],
+    "downstream_gas":25334.2082556949,
     "op_reward":66666.67,
     "round_id":"7"
   },
@@ -3870,6 +3952,7 @@
       "prevostc",
       "albertocentonze"
     ],
+    "downstream_gas":2.3084590569,
     "op_reward":0.0,
     "round_id":"7"
   },
@@ -3892,6 +3975,7 @@
     "trusted_developer_usernames":[
 
     ],
+    "downstream_gas":0.0,
     "op_reward":0.0,
     "round_id":"7"
   },
@@ -4150,6 +4234,7 @@
       "pegahcarter",
       "mcoetzee"
     ],
+    "downstream_gas":23364.2060547524,
     "op_reward":66666.67,
     "round_id":"7"
   },
@@ -4172,6 +4257,7 @@
     "trusted_developer_usernames":[
 
     ],
+    "downstream_gas":0.0,
     "op_reward":0.0,
     "round_id":"7"
   },
@@ -4194,6 +4280,7 @@
     "trusted_developer_usernames":[
 
     ],
+    "downstream_gas":0.0,
     "op_reward":0.0,
     "round_id":"7"
   },
@@ -4216,6 +4303,7 @@
     "trusted_developer_usernames":[
 
     ],
+    "downstream_gas":0.0,
     "op_reward":0.0,
     "round_id":"7"
   },
@@ -4238,6 +4326,7 @@
     "trusted_developer_usernames":[
       "pcaversaccio"
     ],
+    "downstream_gas":0.0,
     "op_reward":0.0,
     "round_id":"7"
   },
@@ -4267,6 +4356,7 @@
       "pcaversaccio",
       "mathisgd"
     ],
+    "downstream_gas":23.3741974305,
     "op_reward":1123.3,
     "round_id":"7"
   },
@@ -4289,6 +4379,7 @@
     "trusted_developer_usernames":[
 
     ],
+    "downstream_gas":0.0,
     "op_reward":0.0,
     "round_id":"7"
   },
@@ -4338,6 +4429,7 @@
       "yorhodes",
       "remedcu"
     ],
+    "downstream_gas":65.5268124723,
     "op_reward":2461.24,
     "round_id":"7"
   },
@@ -4360,6 +4452,7 @@
     "trusted_developer_usernames":[
 
     ],
+    "downstream_gas":0.0,
     "op_reward":0.0,
     "round_id":"7"
   },
@@ -4382,6 +4475,7 @@
     "trusted_developer_usernames":[
 
     ],
+    "downstream_gas":0.0,
     "op_reward":0.0,
     "round_id":"7"
   },
@@ -4439,6 +4533,7 @@
       "ryanio",
       "vyorkin"
     ],
+    "downstream_gas":1223.8672620054,
     "op_reward":1927.06,
     "round_id":"7"
   },
@@ -4475,6 +4570,7 @@
       "sakulstra",
       "goums"
     ],
+    "downstream_gas":63.4972977883,
     "op_reward":2901.28,
     "round_id":"7"
   },
@@ -4499,6 +4595,7 @@
       "pcaversaccio",
       "yorhodes"
     ],
+    "downstream_gas":34.7622064124,
     "op_reward":0.0,
     "round_id":"7"
   },
@@ -4528,6 +4625,7 @@
       "cryptojcdenton",
       "hazim-j"
     ],
+    "downstream_gas":1505.1347537841,
     "op_reward":0.0,
     "round_id":"7"
   },
@@ -4550,6 +4648,7 @@
     "trusted_developer_usernames":[
 
     ],
+    "downstream_gas":0.0,
     "op_reward":0.0,
     "round_id":"7"
   },
@@ -4572,6 +4671,7 @@
     "trusted_developer_usernames":[
 
     ],
+    "downstream_gas":0.0,
     "op_reward":0.0,
     "round_id":"7"
   },
@@ -4594,6 +4694,7 @@
     "trusted_developer_usernames":[
 
     ],
+    "downstream_gas":0.0,
     "op_reward":0.0,
     "round_id":"7"
   },
@@ -4667,6 +4768,7 @@
       "aroralanuk",
       "xeno097"
     ],
+    "downstream_gas":96.5529285161,
     "op_reward":14784.98,
     "round_id":"7"
   },
@@ -4804,6 +4906,7 @@
       "pkieltyka",
       "kien-ngo"
     ],
+    "downstream_gas":4162.445449482,
     "op_reward":42489.33,
     "round_id":"7"
   },
@@ -4827,6 +4930,7 @@
       "kennybabs-py",
       "fractalvisionz"
     ],
+    "downstream_gas":0.0,
     "op_reward":0.0,
     "round_id":"7"
   },
@@ -4849,6 +4953,7 @@
     "trusted_developer_usernames":[
 
     ],
+    "downstream_gas":0.0,
     "op_reward":0.0,
     "round_id":"7"
   },
@@ -4910,6 +5015,7 @@
       "ink-victor",
       "pkieltyka"
     ],
+    "downstream_gas":33.4951714753,
     "op_reward":505.67,
     "round_id":"7"
   },
@@ -4932,6 +5038,7 @@
     "trusted_developer_usernames":[
 
     ],
+    "downstream_gas":0.0,
     "op_reward":0.0,
     "round_id":"7"
   },
@@ -4971,6 +5078,7 @@
       "saucepoint",
       "0xble"
     ],
+    "downstream_gas":2385.0124696103,
     "op_reward":1955.5,
     "round_id":"7"
   },
@@ -5003,6 +5111,7 @@
       "mattpereira",
       "zak3939"
     ],
+    "downstream_gas":1052.1932884711,
     "op_reward":0.0,
     "round_id":"7"
   },
@@ -5027,6 +5136,7 @@
       "nkrishang",
       "pcaversaccio"
     ],
+    "downstream_gas":1051.5328365791,
     "op_reward":0.0,
     "round_id":"7"
   },
@@ -5049,6 +5159,7 @@
     "trusted_developer_usernames":[
 
     ],
+    "downstream_gas":0.0,
     "op_reward":0.0,
     "round_id":"7"
   },
@@ -5079,6 +5190,7 @@
       "moskalyk",
       "piesrtasty"
     ],
+    "downstream_gas":1051.8406352795,
     "op_reward":0.0,
     "round_id":"7"
   },
@@ -5101,6 +5213,7 @@
     "trusted_developer_usernames":[
 
     ],
+    "downstream_gas":0.0,
     "op_reward":0.0,
     "round_id":"7"
   },
@@ -5123,6 +5236,7 @@
     "trusted_developer_usernames":[
 
     ],
+    "downstream_gas":0.0,
     "op_reward":0.0,
     "round_id":"7"
   },
@@ -5145,6 +5259,7 @@
     "trusted_developer_usernames":[
 
     ],
+    "downstream_gas":0.0,
     "op_reward":0.0,
     "round_id":"7"
   },
@@ -5297,6 +5412,7 @@
       "matejos",
       "carlomazzaferro"
     ],
+    "downstream_gas":3069.5702844432,
     "op_reward":28188.78,
     "round_id":"7"
   },
@@ -5319,6 +5435,7 @@
     "trusted_developer_usernames":[
 
     ],
+    "downstream_gas":0.0,
     "op_reward":0.0,
     "round_id":"7"
   },
@@ -5341,6 +5458,7 @@
     "trusted_developer_usernames":[
 
     ],
+    "downstream_gas":0.0,
     "op_reward":0.0,
     "round_id":"7"
   },
@@ -5765,6 +5883,7 @@
       "nanaknihal",
       "liu-zhipeng"
     ],
+    "downstream_gas":25274.9793269342,
     "op_reward":66666.67,
     "round_id":"7"
   },
@@ -5799,6 +5918,7 @@
       "nicolasmassart",
       "matejos"
     ],
+    "downstream_gas":84.9403981284,
     "op_reward":2649.55,
     "round_id":"7"
   },
@@ -5821,6 +5941,7 @@
     "trusted_developer_usernames":[
 
     ],
+    "downstream_gas":0.0,
     "op_reward":0.0,
     "round_id":"7"
   },
@@ -5843,6 +5964,7 @@
     "trusted_developer_usernames":[
 
     ],
+    "downstream_gas":0.0,
     "op_reward":0.0,
     "round_id":"7"
   },
@@ -5895,6 +6017,7 @@
       "kamiyaa",
       "t0rbik"
     ],
+    "downstream_gas":3527.994930102,
     "op_reward":8181.32,
     "round_id":"7"
   },
@@ -5917,6 +6040,7 @@
     "trusted_developer_usernames":[
 
     ],
+    "downstream_gas":0.0,
     "op_reward":0.0,
     "round_id":"7"
   },
@@ -6142,6 +6266,7 @@
       "jjranalli",
       "liu-zhipeng"
     ],
+    "downstream_gas":5112.8259169,
     "op_reward":45064.82,
     "round_id":"7"
   },
@@ -6201,6 +6326,7 @@
       "jjranalli",
       "vectorized"
     ],
+    "downstream_gas":61.9760744451,
     "op_reward":14337.05,
     "round_id":"7"
   },
@@ -6237,6 +6363,7 @@
       "pcaversaccio",
       "benadamsky"
     ],
+    "downstream_gas":6.780871192,
     "op_reward":0.0,
     "round_id":"7"
   },
@@ -6260,6 +6387,7 @@
     "trusted_developer_usernames":[
       "ccashwell"
     ],
+    "downstream_gas":0.2753336411,
     "op_reward":0.0,
     "round_id":"7"
   },
@@ -6310,6 +6438,7 @@
       "jiro-ono",
       "shanefontaine"
     ],
+    "downstream_gas":20.6945463161,
     "op_reward":14796.87,
     "round_id":"7"
   },
@@ -6332,6 +6461,7 @@
     "trusted_developer_usernames":[
 
     ],
+    "downstream_gas":0.0,
     "op_reward":0.0,
     "round_id":"7"
   },
@@ -6354,6 +6484,7 @@
     "trusted_developer_usernames":[
 
     ],
+    "downstream_gas":0.0,
     "op_reward":0.0,
     "round_id":"7"
   },
@@ -6376,6 +6507,7 @@
     "trusted_developer_usernames":[
 
     ],
+    "downstream_gas":0.0,
     "op_reward":0.0,
     "round_id":"7"
   },
@@ -6824,6 +6956,7 @@
       "zhongeric",
       "johngrantuk"
     ],
+    "downstream_gas":25375.3253233781,
     "op_reward":66666.67,
     "round_id":"7"
   },
@@ -6849,6 +6982,7 @@
       "anirudhmakhana",
       "brandonchuah"
     ],
+    "downstream_gas":0.0164141547,
     "op_reward":0.0,
     "round_id":"7"
   },
@@ -6888,6 +7022,7 @@
       "m1guelpf",
       "nbayindirli"
     ],
+    "downstream_gas":1110.4016767691,
     "op_reward":2943.15,
     "round_id":"7"
   },
@@ -6926,6 +7061,7 @@
       "lbeder",
       "slavik0329"
     ],
+    "downstream_gas":21.280389492,
     "op_reward":14375.44,
     "round_id":"7"
   },
@@ -6948,6 +7084,7 @@
     "trusted_developer_usernames":[
 
     ],
+    "downstream_gas":0.0,
     "op_reward":0.0,
     "round_id":"7"
   },
@@ -6973,6 +7110,7 @@
       "nkrishang",
       "saucepoint"
     ],
+    "downstream_gas":3435.7408485749,
     "op_reward":0.0,
     "round_id":"7"
   },
@@ -6995,6 +7133,7 @@
     "trusted_developer_usernames":[
 
     ],
+    "downstream_gas":0.0,
     "op_reward":0.0,
     "round_id":"7"
   },
@@ -7022,6 +7161,7 @@
       "a5-pickle",
       "pcaversaccio"
     ],
+    "downstream_gas":0.6275022577,
     "op_reward":0.0,
     "round_id":"7"
   },
@@ -7109,6 +7249,7 @@
       "joaquim-verges",
       "pegahcarter"
     ],
+    "downstream_gas":3898.4047366155,
     "op_reward":16132.71,
     "round_id":"7"
   },
@@ -7131,6 +7272,7 @@
     "trusted_developer_usernames":[
 
     ],
+    "downstream_gas":0.0,
     "op_reward":0.0,
     "round_id":"7"
   },
@@ -7173,6 +7315,7 @@
       "chrismaree",
       "akshatmittal"
     ],
+    "downstream_gas":76.7344063035,
     "op_reward":2237.38,
     "round_id":"7"
   },
@@ -7206,6 +7349,7 @@
       "montoya",
       "albertocentonze"
     ],
+    "downstream_gas":30.0219046891,
     "op_reward":3365.44,
     "round_id":"7"
   },
@@ -7252,6 +7396,7 @@
       "vyorkin",
       "tom2o17"
     ],
+    "downstream_gas":19.632464598,
     "op_reward":1585.82,
     "round_id":"7"
   },
@@ -7323,6 +7468,7 @@
       "shuhuiluo",
       "0xkitsune"
     ],
+    "downstream_gas":2569.6669571798,
     "op_reward":21764.67,
     "round_id":"7"
   },
@@ -7345,6 +7491,7 @@
     "trusted_developer_usernames":[
 
     ],
+    "downstream_gas":0.0,
     "op_reward":0.0,
     "round_id":"7"
   },
@@ -7370,6 +7517,7 @@
       "pcaversaccio",
       "yuripetusko"
     ],
+    "downstream_gas":0.0133524912,
     "op_reward":0.0,
     "round_id":"7"
   },
@@ -7392,6 +7540,7 @@
     "trusted_developer_usernames":[
 
     ],
+    "downstream_gas":0.0,
     "op_reward":0.0,
     "round_id":"7"
   },
@@ -7414,6 +7563,7 @@
     "trusted_developer_usernames":[
       "pcaversaccio"
     ],
+    "downstream_gas":0.0,
     "op_reward":0.0,
     "round_id":"7"
   },
@@ -7488,6 +7638,7 @@
       "impolska742",
       "npty"
     ],
+    "downstream_gas":433.073702067,
     "op_reward":23314.15,
     "round_id":"7"
   },
@@ -7510,6 +7661,7 @@
     "trusted_developer_usernames":[
 
     ],
+    "downstream_gas":0.0,
     "op_reward":0.0,
     "round_id":"7"
   },
@@ -7532,6 +7684,7 @@
     "trusted_developer_usernames":[
 
     ],
+    "downstream_gas":0.0,
     "op_reward":0.0,
     "round_id":"7"
   },
@@ -7736,6 +7889,7 @@
       "joaquim-verges",
       "akshatmittal"
     ],
+    "downstream_gas":4264.5802097733,
     "op_reward":64827.18,
     "round_id":"7"
   },
@@ -7758,6 +7912,7 @@
     "trusted_developer_usernames":[
       "pkieltyka"
     ],
+    "downstream_gas":0.1660518058,
     "op_reward":0.0,
     "round_id":"7"
   },
@@ -7832,6 +7987,7 @@
       "mmv08",
       "paulrberg"
     ],
+    "downstream_gas":3305.5679212769,
     "op_reward":9801.0,
     "round_id":"7"
   },
@@ -8061,6 +8217,7 @@
       "zouguangxian",
       "pcaversaccio"
     ],
+    "downstream_gas":21975.6760992416,
     "op_reward":45214.28,
     "round_id":"7"
   },
@@ -8216,6 +8373,7 @@
       "jjranalli",
       "kulkarohan"
     ],
+    "downstream_gas":4350.1898080798,
     "op_reward":29620.02,
     "round_id":"7"
   },
@@ -8295,6 +8453,7 @@
       "x0s0l",
       "arcoraven"
     ],
+    "downstream_gas":1449.7400209052,
     "op_reward":27910.24,
     "round_id":"7"
   },
@@ -8321,6 +8480,7 @@
       "0xdanzu",
       "rahul0tripathi"
     ],
+    "downstream_gas":0.1875505287,
     "op_reward":1186.36,
     "round_id":"7"
   },
@@ -8364,6 +8524,7 @@
       "shanefontaine",
       "pcaversaccio"
     ],
+    "downstream_gas":397.7288567601,
     "op_reward":17275.14,
     "round_id":"7"
   },
@@ -8407,6 +8568,7 @@
       "dbeal-eth",
       "0xmithrandir"
     ],
+    "downstream_gas":405.6934757575,
     "op_reward":15058.18,
     "round_id":"7"
   },
@@ -8430,6 +8592,7 @@
     "trusted_developer_usernames":[
       "forshtat"
     ],
+    "downstream_gas":811.279478334,
     "op_reward":0.0,
     "round_id":"7"
   },
@@ -8452,6 +8615,7 @@
     "trusted_developer_usernames":[
 
     ],
+    "downstream_gas":0.0,
     "op_reward":0.0,
     "round_id":"7"
   },
@@ -8474,6 +8638,7 @@
     "trusted_developer_usernames":[
 
     ],
+    "downstream_gas":0.0,
     "op_reward":0.0,
     "round_id":"7"
   },
@@ -8861,6 +9026,7 @@
       "nkrishang",
       "pegahcarter"
     ],
+    "downstream_gas":25980.1678216148,
     "op_reward":66666.67,
     "round_id":"7"
   },
@@ -8883,6 +9049,7 @@
     "trusted_developer_usernames":[
       "jlin27"
     ],
+    "downstream_gas":51.3793699427,
     "op_reward":0.0,
     "round_id":"7"
   },
@@ -8905,6 +9072,7 @@
     "trusted_developer_usernames":[
 
     ],
+    "downstream_gas":0.0,
     "op_reward":0.0,
     "round_id":"7"
   },
@@ -8927,6 +9095,7 @@
     "trusted_developer_usernames":[
       "pcaversaccio"
     ],
+    "downstream_gas":0.0,
     "op_reward":0.0,
     "round_id":"7"
   },
@@ -9015,6 +9184,7 @@
       "pegahcarter",
       "janjakubnanista"
     ],
+    "downstream_gas":978.7720510467,
     "op_reward":17070.87,
     "round_id":"7"
   },
@@ -9037,6 +9207,7 @@
     "trusted_developer_usernames":[
 
     ],
+    "downstream_gas":0.0,
     "op_reward":0.0,
     "round_id":"7"
   },
@@ -9060,6 +9231,7 @@
     "trusted_developer_usernames":[
       "janjakubnanista"
     ],
+    "downstream_gas":18.3068864369,
     "op_reward":0.0,
     "round_id":"7"
   },
@@ -9089,6 +9261,7 @@
       "0xosiris",
       "pcaversaccio"
     ],
+    "downstream_gas":78.3031980408,
     "op_reward":927.0,
     "round_id":"7"
   },
@@ -9111,6 +9284,7 @@
     "trusted_developer_usernames":[
 
     ],
+    "downstream_gas":0.0,
     "op_reward":0.0,
     "round_id":"7"
   },
@@ -9133,6 +9307,7 @@
     "trusted_developer_usernames":[
 
     ],
+    "downstream_gas":0.0,
     "op_reward":0.0,
     "round_id":"7"
   },
@@ -9183,6 +9358,7 @@
       "vyorkin",
       "ryanio"
     ],
+    "downstream_gas":53.8937342672,
     "op_reward":21873.65,
     "round_id":"7"
   },
@@ -9205,6 +9381,7 @@
     "trusted_developer_usernames":[
       "liu-zhipeng"
     ],
+    "downstream_gas":0.381982862,
     "op_reward":0.0,
     "round_id":"7"
   },
@@ -9228,6 +9405,7 @@
     "trusted_developer_usernames":[
       "joaquim-verges"
     ],
+    "downstream_gas":1051.5328365791,
     "op_reward":0.0,
     "round_id":"7"
   },
@@ -9256,6 +9434,7 @@
       "yuripetusko",
       "joaquim-verges"
     ],
+    "downstream_gas":1051.5461890703,
     "op_reward":0.0,
     "round_id":"7"
   },
@@ -9278,6 +9457,7 @@
     "trusted_developer_usernames":[
 
     ],
+    "downstream_gas":0.0,
     "op_reward":0.0,
     "round_id":"7"
   },
@@ -9375,6 +9555,7 @@
       "falvaradorodriguez",
       "milapsheth"
     ],
+    "downstream_gas":1237.9041372794,
     "op_reward":30814.1,
     "round_id":"7"
   },
@@ -9397,6 +9578,7 @@
     "trusted_developer_usernames":[
       "rube-de"
     ],
+    "downstream_gas":0.0458620459,
     "op_reward":0.0,
     "round_id":"7"
   },
@@ -9419,6 +9601,7 @@
     "trusted_developer_usernames":[
 
     ],
+    "downstream_gas":0.0,
     "op_reward":0.0,
     "round_id":"7"
   },
@@ -9441,6 +9624,7 @@
     "trusted_developer_usernames":[
 
     ],
+    "downstream_gas":0.0,
     "op_reward":0.0,
     "round_id":"7"
   },
@@ -9463,6 +9647,7 @@
     "trusted_developer_usernames":[
 
     ],
+    "downstream_gas":0.0,
     "op_reward":0.0,
     "round_id":"7"
   },
@@ -9487,6 +9672,7 @@
       "alexeychr",
       "pcaversaccio"
     ],
+    "downstream_gas":12.6203929312,
     "op_reward":0.0,
     "round_id":"7"
   },
@@ -9514,6 +9700,7 @@
       "pcaversaccio",
       "0xpenryn"
     ],
+    "downstream_gas":34.775546749,
     "op_reward":0.0,
     "round_id":"7"
   },
@@ -9554,6 +9741,7 @@
       "yorhodes",
       "meemaw"
     ],
+    "downstream_gas":39.0487003368,
     "op_reward":9524.92,
     "round_id":"7"
   },
@@ -9582,6 +9770,7 @@
       "xeno097",
       "0xosiris"
     ],
+    "downstream_gas":34.775546749,
     "op_reward":726.45,
     "round_id":"7"
   },
@@ -9619,6 +9808,7 @@
       "miguelmota",
       "cruzdanilo"
     ],
+    "downstream_gas":3460.1487426492,
     "op_reward":454.85,
     "round_id":"7"
   },
@@ -9641,6 +9831,7 @@
     "trusted_developer_usernames":[
 
     ],
+    "downstream_gas":0.0,
     "op_reward":0.0,
     "round_id":"7"
   },
@@ -9879,6 +10070,7 @@
       "tamararingas",
       "forshtat"
     ],
+    "downstream_gas":24972.6780403227,
     "op_reward":50483.54,
     "round_id":"7"
   },
@@ -9901,6 +10093,7 @@
     "trusted_developer_usernames":[
       "shuhuiluo"
     ],
+    "downstream_gas":0.0216273936,
     "op_reward":0.0,
     "round_id":"7"
   },
@@ -9923,6 +10116,7 @@
     "trusted_developer_usernames":[
       "zhongeric"
     ],
+    "downstream_gas":2384.2080119957,
     "op_reward":0.0,
     "round_id":"7"
   },
@@ -9994,6 +10188,7 @@
       "jjranalli",
       "0xszeth"
     ],
+    "downstream_gas":126.5602263973,
     "op_reward":2994.97,
     "round_id":"7"
   },
@@ -10033,6 +10228,7 @@
       "mathisgd",
       "pcaversaccio"
     ],
+    "downstream_gas":41.5083171951,
     "op_reward":593.74,
     "round_id":"7"
   }
