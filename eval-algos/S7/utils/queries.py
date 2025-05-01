@@ -101,4 +101,49 @@ QUERIES = [
             FROM int_superchain_s7_devtooling_metrics_by_project
         """
     },
+    {
+        "filename": "onchain__summary_metric_snapshot",
+        "filetype": "csv",
+        "query": """
+            WITH params AS (
+                SELECT DATE '2025-03-01' AS month_start
+            )
+            SELECT
+                tm.project_id,
+                p.project_name AS op_atlas_id,
+                p.display_name,
+                LOWER(
+                    REGEXP_REPLACE(m.display_name, '[^a-zA-Z0-9]+', '_')
+                ) || '__' ||
+                LOWER(DATE_FORMAT(tm.sample_date, '%b')) || '_' || 
+                DATE_FORMAT(tm.sample_date, '%Y')
+                AS metric_name,
+
+                DATE_FORMAT(tm.sample_date, '%b %Y') AS measurement_period,
+
+                SUM(
+                    CASE
+                        WHEN m.display_name IN ('Defillama TVL', 'Active Addresses Aggregation')
+                        THEN tm.amount / DAY(LAST_DAY_OF_MONTH(tm.sample_date))
+                        ELSE tm.amount
+                    END
+                ) AS amount
+            FROM timeseries_metrics_by_project_v0 AS tm
+            JOIN metrics_v0 AS m ON m.metric_id = tm.metric_id
+            JOIN projects_v1 AS p ON p.project_id = tm.project_id
+            JOIN projects_by_collection_v1 AS pbc ON pbc.project_id = p.project_id
+            JOIN params AS pms ON TRUE
+            WHERE
+                pbc.collection_name = '8-2'
+            AND tm.sample_date >= pms.month_start
+            AND tm.sample_date < DATE_ADD('month', 1, pms.month_start)
+            AND (
+                    m.metric_name LIKE '%gas_fees_daily'
+                OR m.metric_name LIKE '%defillama_tvl_daily'
+                OR m.metric_name LIKE '%active_addresses_aggregation_daily'
+                OR m.metric_name LIKE '%contract_invocations_daily'
+            )
+            GROUP BY 1, 2, 3, 4, 5
+        """
+    }
 ] 
