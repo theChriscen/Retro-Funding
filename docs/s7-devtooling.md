@@ -8,7 +8,7 @@ This document explains the initial evaluation methodology developed for the **Re
 
 | Algorithm     | Goal                                  | Best For                                                | Emphasis                                                                               |
 | ------------- | ------------------------------------- | ------------------------------------------------------- | -------------------------------------------------------------------------------------- |
-| **Arcturus**  | Reward widely adopted projects        | Established, high-impact devtooling projects            | Prioritizes total dependents and the economic weight of those dependents               |
+| **Arcturus [Used in S7]**  | Reward widely adopted projects        | Established, high-impact devtooling projects            | Prioritizes total dependents and the economic weight of those dependents               |
 | **Bellatrix** | Prioritize fast-growing tools         | New or rapidly expanding devtooling projects            | Applies a steep decay factor on older forms of GitHub engagement, favors Rust over npm |
 | **Canopus**   | Balance various forms of contribution | Tools with high developer collaboration & contributions | Puts stronger emphasis on GitHub engagement and developer reputation                   |
 
@@ -348,7 +348,7 @@ The pipeline exports a “detailed_value_flow_graph” CSV that can power visual
 
 Each algorithm references a different YAML file but shares the same underlying pipeline, with distinct weights and decays.
 
-### Arcturus
+### Arcturus [Used in S7]
 
 Arcturus rewards projects with **significant current adoption** by focusing on total dependents and downstream impact. It emphasizes the number of developers and onchain users benefiting from these tools, ensuring that cornerstone infrastructure is properly recognized. By applying only a modest discount to older events, Arcturus is best suited for rewarding established projects that many builders rely on.
 
