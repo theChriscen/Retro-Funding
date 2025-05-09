@@ -10,7 +10,7 @@ This document explains the initial evaluation methodology developed for the **Re
 | ----------------- | ------------------------------------ | --------------------------------------------------- | ---------------------------------------------------------------- |
 | **Superscale**    | Reward clear-cut leaders             | Large, established projects with high usage         | Adoption (favors projects with high recent activity)             |
 | **Acceleratooor** | Prioritize fast-growing projects     | New and emerging projects gaining traction          | Growth (favors projects with the largest net increase in impact) |
-| **Goldilocks**    | Achieve a more balanced distribution | Consistently active projects with steady engagement | Retention (favors projects maintaining impact over time)         |
+| **Goldilocks [Used in S7]**    | Achieve a more balanced distribution | Consistently active projects with steady engagement | Retention (favors projects maintaining impact over time)         |
 
 ## Context
 
@@ -290,7 +290,7 @@ Projects from Retro Funding 4 that score well include:
 
 </details>
 
-### Goldilocks
+### Goldilocks [Used in S7]
 
 This algorithm seeks to **evenly balance various aspects of impact**. It places a moderate weight on each metric and prioritizes retention over sheer growth. The goal is to support steady, sustained contributions across the board rather than “spiky” projects that only excel in one area. This is a good algorithm to vote for if you want to support a wide range of projects.
 
