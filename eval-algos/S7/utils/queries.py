@@ -2,11 +2,16 @@
 This module contains all the SQL queries used to fetch data from OSO.
 """
 
+THIS_DEVTOOLING_COLLECTION = '8-3'
+SAMPLE_DATE = '2025-04-01'
+START_DATE = '2025-03-01'
+END_DATE = '2025-05-01'
+
 QUERIES = [
     {
         "filename": "onchain__project_metadata",
         "filetype": "csv",
-        "query": """
+        "query": f"""
             SELECT
                 p.project_id,
                 p.project_name,
@@ -19,15 +24,15 @@ QUERIES = [
             JOIN projects_v1 AS p ON e.project_id = p.project_id
             JOIN projects_by_collection_v1 AS pbc ON p.project_id = pbc.project_id
             WHERE
-                pbc.collection_name = '8-2'
-                AND e.sample_date = DATE '2025-03-01'
+                pbc.collection_name = '{THIS_DEVTOOLING_COLLECTION}'
+                AND e.sample_date = DATE '{SAMPLE_DATE}'
             ORDER BY e.transaction_count DESC
         """
     },
     {
         "filename": "onchain__metrics_by_project",
         "filetype": "csv",
-        "query": """
+        "query": f"""
             SELECT
                 m.project_id,
                 p.display_name,
@@ -41,15 +46,19 @@ QUERIES = [
             JOIN projects_by_collection_v1 AS pbc ON m.project_id = pbc.project_id
             JOIN projects_v1 AS p ON pbc.project_id = p.project_id
             WHERE
-                pbc.collection_name = '8-2'
-                AND m.sample_date >= DATE '2025-02-01'
-                AND m.sample_date < DATE '2025-04-01'
+                pbc.collection_name = '{THIS_DEVTOOLING_COLLECTION}'
+                AND m.sample_date >= DATE ('{START_DATE}')
+                AND m.sample_date < DATE '{END_DATE}'
+                AND NOT ( -- TODO: needs to be removed on OP Atlas side
+                  p.project_name = '0xeb6d215732b1ed881e718faa8bf8b4b88a94edf021efa9a3cf3e2cc3c22b0961'
+                  AND m.metric_name = 'average_tvl_monthly'
+                )
         """
     },
     {
         "filename": "devtooling__project_metadata",
         "filetype": "csv",
-        "query": """
+        "query": f"""
             SELECT 
                 project_id,
                 project_name,
@@ -64,7 +73,7 @@ QUERIES = [
     {
         "filename": "devtooling__onchain_metadata",
         "filetype": "csv",
-        "query": """
+        "query": f"""
             SELECT DISTINCT
                 b.project_id,
                 p.project_name,
@@ -80,7 +89,7 @@ QUERIES = [
     {
         "filename": "devtooling__dependency_graph",
         "filetype": "csv",
-        "query": """
+        "query": f"""
             SELECT *
             FROM int_superchain_s7_devtooling_deps_to_projects_graph
         """
@@ -88,7 +97,7 @@ QUERIES = [
     {
         "filename": "devtooling__developer_graph",
         "filetype": "csv",
-        "query": """
+        "query": f"""
             SELECT *
             FROM int_superchain_s7_devtooling_devs_to_projects_graph
         """
@@ -96,7 +105,7 @@ QUERIES = [
     {
         "filename": "devtooling__raw_metrics",
         "filetype": "json",
-        "query": """
+        "query": f"""
             SELECT * 
             FROM int_superchain_s7_devtooling_metrics_by_project
         """
@@ -104,9 +113,9 @@ QUERIES = [
     {
         "filename": "onchain__summary_metric_snapshot",
         "filetype": "csv",
-        "query": """
+        "query": f"""
             WITH params AS (
-                SELECT DATE '2025-03-01' AS month_start
+                SELECT DATE '{SAMPLE_DATE}' AS month_start
             )
             SELECT
                 tm.project_id,
@@ -134,7 +143,7 @@ QUERIES = [
             JOIN projects_by_collection_v1 AS pbc ON pbc.project_id = p.project_id
             JOIN params AS pms ON TRUE
             WHERE
-                pbc.collection_name = '8-2'
+                pbc.collection_name = '{THIS_DEVTOOLING_COLLECTION}'
             AND tm.sample_date >= pms.month_start
             AND tm.sample_date < DATE_ADD('month', 1, pms.month_start)
             AND (

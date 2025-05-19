@@ -61,8 +61,8 @@ The OSO pipeline code is contained in our `OnchainBuildersCalculator` class and 
 All projects must meet minimum activity requirements (measured over the last 180 days) to earn rewards:
 
 1. **Transactions**: The project's contracts must be invoked in at least **1000 succesful transactions**.
-2. **Addresses**: The project's contract must be invoked by at least **420 distinct addresses**.
-3. **Active Days**: The project's contracts must be invoked on at least **10 different calendar days**.
+2. **Active Days**: The project's contracts must be invoked on at least **10 different calendar days**.
+3. **Addresses**: The project's contract must be invoked by at least **420 distinct addresses**. Note: this criterion has been removed as of M2.
 
 DeFi projects can earn additional TVL rewards if they had at least **$1M average TVL**.
 
@@ -101,7 +101,7 @@ Each project’s score is based on four key metrics:
 1. **TVL**. The average Total Value Locked (in USD) during the measurement period, focusing on ETH, stablecoins, and eventually other qualified assets.
 2. **Transaction Counts**. The count of unique, successful transaction hashes that result in a state change and involve one or more of a project’s contracts on the Superchain.
 3. **Gas Fees**. The total L2 gas (gas consumed \* gas price) for all successful transactions the results in a state change and involve one or more of a project’s contracts on the Superchain.
-4. **Monthly Active Users**. The count of unique Farcaster IDs linked to addresses that initiated an event producing a state change with one or more of a project’s contracts.
+4. **Monthly Active Users**. The count of qualified unique users (Farcaster linked addresses or World Verified Users) that initiated an event producing a state change with one or more of a project’s contracts.
 
 These metrics are grouped by project and chain, with the potential to weight by interop- or chain-specific multipliers. Finally, we sum them across all chains to get a single aggregated value per project.
 
@@ -141,7 +141,9 @@ No. Currently the protocol (project) that holds the liquidity is attributed 100%
 <details>
 <summary>We know addresses are not a good proxy for users. Why use them at all?</summary>
 
-We are currently using Farcaster IDs as a proxy for more robust trusted user models. If a Farcaster ID is linked to multiple addresses, it only counts once.
+We began by only using Farcaster IDs as a proxy for more robust trusted user models. If a Farcaster ID is linked to multiple addresses, it only counts once.
+
+As of M3, the model has been updated to use World Verified Users as well.
 
 We are working on integrating more sophisticated models in the future.
 
@@ -152,7 +154,7 @@ User numbers are not heavily weighted in any of the algorithms, so this is not a
 <details>
 <summary>How are user ops from account abstraction projects handled?</summary>
 
-We are in the process of creating logic specifically for handling account abstraction-related transactions, which bundle actions from multiple users into the same same transaction. Once this ships, we will update the relevant models to count each qualified user op as a distinct transaction and smart contract wallet as a distinct address. In the meantime, activity from account abstraction projects is captured via the trace-level logic described above.
+As of M2, we have created logic specifically for handling account abstraction-related transactions, which bundle actions from multiple users into the same same transaction. UserOps are counted as a distinct transaction and smart contract wallet as a distinct address. Gas fees are shared among all projects involved in the transaction.
 
 </details>
 
