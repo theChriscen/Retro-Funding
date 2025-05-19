@@ -70,7 +70,7 @@ A devtooling project must meet all of the following to be considered for a rewar
 1. **Open Source**: It has a _public_ GitHub repository with a continuous history of public commits (including some activity in the last 6 months).
 2. **Minimum Links**: The devtooling project must meet the following "centrality" thresholds within the Optimism ecosystem:
    - At least **three** qualified onchain builder projects have included this devtooling project in their dependency graph (see “What types of package links?” below), **or**
-   - At least **ten** active onchain developers (i.e., devs who contributed to qualified onchain builder projects) have engaged with the devtooling project on GitHub (commits, issues, PRs, forks, stars, etc.).
+   - At least **five** active onchain developers (i.e., devs who contributed to qualified onchain builder projects) have engaged with the devtooling project on GitHub (commits, issues, PRs, forks, stars, etc.).
 3. **Qualified Onchain Projects**: The onchain builder projects referencing this devtooling project must themselves meet two conditions:
    - Verify GitHub and contract ownership on OP Atlas or OSO's registry of onchain projects
    - Have at least 0.01 ETH in L2 gas fees (across the Superchain) in the past 6 months
@@ -201,6 +201,7 @@ Pretrust metrics are applied to each node in the graph:
 
    - Pretrust is derived from the total number of published packages and GitHub metrics (stars, forks).
    - The importance of each metric is multiplied by algorithm-specific weights.
+   - We also apply a configurable `utility_weights` parameter to devtooling project pretrust scores, based on each project's assigned utility label (e.g., performance, debugging, documentation). Utility labels are assigned via the Devtooling Labels experiment, which clusters and categorizes projects as described in the [Devtooling Labels Experiment](https://github.com/opensource-observer/insights/tree/main/experiments/devtooling_labels).
    - The same procedure of log-scaling, min-max normalization, weighting, and final normalization ensures the total across devtooling projects = 1.
 
 3. **Developer Reputation**
@@ -257,9 +258,16 @@ After constructing the graph and computing pretrust scores, we assign final weig
    - These weights have the effect of favoring one type of link over another.
 
 1. **Event-Type Weights**
+   
    - There are `event_type` weights for both GitHub events (e.g., commit code, forked, etc.) and package events (e.g., npm dependency added, crates dependency added, etc.).
    - These weights have the effect of favoring one type of event over another.
    - They can also be set to zero, effectively removing that link type from the graph.
+
+1. **Utility Weights**
+
+   - As of M3, each algorithm can specify a `utility_weights` block in its YAML config to weight scores toward projects with particular utility labels.
+   - These weights multiply the final EigenTrust output for devtooling projects based on their label assignments, allowing missions to emphasize specific tool functions.
+   - -See the [Devtooling Labels Experiment](https://github.com/opensource-observer/insights/tree/main/experiments/devtooling_labels) for details on how labels are derived.
 
 All of these properties are configurable in each algorithm's associated YAML. We encourage the community to propose different settings that reflect how we want to reward certain forms of usage.
 
@@ -288,7 +296,7 @@ We run the [EigenTrust](https://docs.openrank.com/openrank-sdk/sdk-references/ei
    - One pass on `PACKAGE_DEPENDENCY` edges only (onchain → devtooling).
    - A second pass on any developer-related edges (`ONCHAIN_PROJECT_TO_DEVELOPER` and `DEVELOPER_TO_DEVTOOLING_PROJECT`).
 
-   Each pass yields a trust distribution over all nodes. We then extract only the devtooling-project results from each pass, scale them by `link_type_weights` (e.g. how much we want to emphasize package dependencies vs. developer engagement), and finally sum and normalize to get a single score per devtooling project.
+   Each pass yields a trust distribution over all nodes. We then extract only the devtooling-project results from each pass, scale them by `link_type_weights` (e.g. how much we want to emphasize package dependencies vs. developer engagement) and `utility_weights` (if specified), and finally sum and normalize to get a single score per devtooling project.
 
 2. **Pretrust Vector**
 

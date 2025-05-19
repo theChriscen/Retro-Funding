@@ -27,6 +27,7 @@ All notable changes to algorithms, weights, and underlying OSO models will be do
 - Configured serialization of each round’s results to JSON under `data/outputs`.
 
 ### Changed
+- Removed the `addresses` criterion from the onchain builder eligibility filter.
 - Moved budget allocation settings into the `allocation` section of each algorithm config file.
 - Updated amortized contract invocations to include all relevant account abstraction events.
 - Simplified amortization logic so that projects receive equal credit per invocation, regardless of how many other Retro Funded projects are invoked in the same transaction.
