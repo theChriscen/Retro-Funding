@@ -25,6 +25,7 @@ class DataSnapshot:
     devtooling_projects_file: str
     project_dependencies_file: str
     developers_to_projects_file: str
+    utility_labels_file: str = None
 
 
 @dataclass
@@ -38,6 +39,7 @@ class SimulationConfig:
     link_type_time_decays: Dict[str, float]
     link_type_weights: Dict[str, float]
     event_type_weights: Dict[str, float]
+    utility_weights: Dict[str, float]
     eligibility_thresholds: Dict[str, int]
 
 
@@ -73,7 +75,9 @@ class DevtoolingCalculator:
         df_onchain_projects: pd.DataFrame,
         df_devtooling_projects: pd.DataFrame,
         df_project_dependencies: pd.DataFrame,
-        df_developers_to_projects: pd.DataFrame
+        df_developers_to_projects: pd.DataFrame,
+        utility_label_map: Dict[str, str],
+        data_snapshot: DataSnapshot
     ) -> Dict[str, pd.DataFrame]:
         """
         Runs the complete analysis pipeline to compute trust scores.
@@ -83,6 +87,8 @@ class DevtoolingCalculator:
             df_devtooling_projects (pd.DataFrame): DataFrame with devtooling project data.
             df_project_dependencies (pd.DataFrame): DataFrame with project dependency relationships.
             df_developers_to_projects (pd.DataFrame): DataFrame with developer-project relationships.
+            utility_label_map (Dict[str, str]): Mapping of project IDs to their utility categories.
+            data_snapshot (DataSnapshot): Data snapshot containing file paths.
 
         Returns:
             Dict[str, pd.DataFrame]: Analysis dictionary containing intermediate and final outputs.
@@ -92,7 +98,9 @@ class DevtoolingCalculator:
             'onchain_projects': df_onchain_projects,
             'devtooling_projects': df_devtooling_projects,
             'project_dependencies': df_project_dependencies,
-            'developers_to_projects': df_developers_to_projects
+            'developers_to_projects': df_developers_to_projects,
+            'utility_label_map': utility_label_map,
+            'data_snapshot': data_snapshot
         }
 
         # Execute pipeline steps
@@ -280,7 +288,7 @@ class DevtoolingCalculator:
         self.analysis['developer_reputation'] = df_dev_reputation
 
     # --------------------------------------------------------------------
-    # Step 5: Weight edges (including time decay)
+    # Step 5: Weight edges (including time decay and utility weights)
     # --------------------------------------------------------------------
     def _weight_edges(self) -> None:
         """
@@ -294,6 +302,8 @@ class DevtoolingCalculator:
         # Get algorithm settings
         link_type_decay_factors = {k.upper(): v for k,v in self.config.link_type_time_decays.items()}
         event_type_weights = {k.upper(): v for k, v in self.config.event_type_weights.items()}
+        utility_weights = self.config.utility_weights
+        utility_label_map = self.analysis['utility_label_map']
 
         # Calculate time decay
         time_ref = df_edges['event_month'].max()    
@@ -306,10 +316,41 @@ class DevtoolingCalculator:
         for link_type, decay_factor in link_type_decay_factors.items():
             mask = df_edges['link_type'] == link_type
             decay_lambda = np.log(2) / decay_factor
-            df_edges.loc[mask, 'v_edge'] = (
-                np.exp(-decay_lambda * time_diff_years[mask])
-                * df_edges.loc[mask, 'event_type'].map(event_type_weights)
-            )
+            
+            # Get base weights from event type
+            base_weights = df_edges.loc[mask, 'event_type'].map(event_type_weights)
+            
+            # Apply utility weights for devtooling projects
+            if link_type == 'PACKAGE_DEPENDENCY':
+                # For package dependencies, apply utility weight to the target project (j)
+                # If project not in utility_label_map, use default weight of 1.0
+                utility_weights_series = df_edges.loc[mask, 'j'].map(
+                    lambda x: utility_weights.get(utility_label_map.get(x, ''), 1.0)
+                )
+                
+                df_edges.loc[mask, 'v_edge'] = (
+                    np.exp(-decay_lambda * time_diff_years[mask])
+                    * base_weights
+                    * utility_weights_series
+                )
+            elif link_type == 'DEVELOPER_TO_DEVTOOLING_PROJECT':
+                # For developer to devtooling project links, apply utility weight to the target project (j)
+                # If project not in utility_label_map, use default weight of 1.0
+                utility_weights_series = df_edges.loc[mask, 'j'].map(
+                    lambda x: utility_weights.get(utility_label_map.get(x, ''), 1.0)
+                )
+                
+                df_edges.loc[mask, 'v_edge'] = (
+                    np.exp(-decay_lambda * time_diff_years[mask])
+                    * base_weights
+                    * utility_weights_series
+                )
+            else:
+                # For other link types, just apply time decay and event weights
+                df_edges.loc[mask, 'v_edge'] = (
+                    np.exp(-decay_lambda * time_diff_years[mask])
+                    * base_weights
+                )
 
         # Save the weighted edges
         self.analysis['weighted_edges'] = df_edges
@@ -553,7 +594,8 @@ def load_config(config_path: str) -> Tuple[DataSnapshot, SimulationConfig]:
         onchain_projects_file=config['data_snapshot']['onchain_projects'],
         devtooling_projects_file=config['data_snapshot']['devtooling_projects'],
         project_dependencies_file=config['data_snapshot']['project_dependencies'],
-        developers_to_projects_file=config['data_snapshot']['developers_to_projects']
+        developers_to_projects_file=config['data_snapshot']['developers_to_projects'],
+        utility_labels_file=config['data_snapshot'].get('utility_labels')
     )
 
     sim_config = config.get('simulation', {})
@@ -563,14 +605,15 @@ def load_config(config_path: str) -> Tuple[DataSnapshot, SimulationConfig]:
         devtooling_project_pretrust_weights=sim_config.get('devtooling_project_pretrust_weights', {}),
         link_type_time_decays=sim_config.get('link_type_time_decays', {}),
         link_type_weights=sim_config.get('link_type_weights', {}),
-        event_type_weights=sim_config.get('event_type_weights', {}),        
+        event_type_weights=sim_config.get('event_type_weights', {}),
+        utility_weights=sim_config.get('utility_weights', {}),
         eligibility_thresholds=sim_config.get('eligibility_thresholds', {})
     )
 
     return data_snapshot, simulation_config
 
 
-def load_data(data_snapshot: DataSnapshot) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame]:
+def load_data(data_snapshot: DataSnapshot) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame, Dict[str, str]]:
     """
     Loads data files specified in the DataSnapshot.
 
@@ -578,8 +621,8 @@ def load_data(data_snapshot: DataSnapshot) -> Tuple[pd.DataFrame, pd.DataFrame, 
         data_snapshot (DataSnapshot): Object containing file path details.
 
     Returns:
-        Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame]: DataFrames for onchain projects,
-        devtooling projects, project dependencies, and developer-project relationships.
+        Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame, Dict[str, str]]: DataFrames for onchain projects,
+        devtooling projects, project dependencies, developer-project relationships, and utility label mapping.
     """
     def get_path(filename: str) -> str:
         return f"{data_snapshot.data_dir}/{filename}"
@@ -596,8 +639,24 @@ def load_data(data_snapshot: DataSnapshot) -> Tuple[pd.DataFrame, pd.DataFrame, 
     else:
         raise ValueError("No 'event_month' or 'bucket' column found in developers_to_projects.csv")
 
+    # Load and join utility labels if available
+    utility_label_map = {}
+    if data_snapshot.utility_labels_file:
+        try:
+            df_utility_labels = pd.read_csv(get_path(data_snapshot.utility_labels_file))
+            df_joined = pd.merge(
+                df_utility_labels,
+                df_devtooling_projects[['project_id', 'project_name']],
+                on='project_name',
+                how='left'
+            )
+            utility_label_map = df_joined.set_index('project_id')['recommendation'].to_dict()
+        except (KeyError, FileNotFoundError) as e:
+            warnings.warn(f"Utility labels not found: {str(e)}. Using default weight of 1.0 for all projects.")
+
     return (df_onchain_projects, df_devtooling_projects,
-            df_project_dependencies, df_developers_to_projects)
+            df_project_dependencies, df_developers_to_projects,
+            utility_label_map)
 
 
 def run_simulation(config_path: str) -> Dict[str, Any]:
@@ -613,7 +672,7 @@ def run_simulation(config_path: str) -> Dict[str, Any]:
     data_snapshot, simulation_config = load_config(config_path)
     data = load_data(data_snapshot)
     calculator = DevtoolingCalculator(simulation_config)
-    analysis = calculator.run_analysis(*data)
+    analysis = calculator.run_analysis(*data, data_snapshot)
     analysis["data_snapshot"] = data_snapshot
     analysis["simulation_config"] = simulation_config
     return analysis

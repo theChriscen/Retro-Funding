@@ -25,36 +25,29 @@ from S7.utils.config import (
     ensure_directories
 )
 
-def process_scores(measurement_period: str, model_yaml: str):
+def process_scores(measurement_period: str, model: str) -> None:
     """
-    Process devtooling scores for a specific measurement period and model.
+    Process devtooling scores for a given measurement period and model.
     
     Args:
-        measurement_period: The measurement period (e.g., 'M1', 'M2')
-        model_yaml: The model YAML file name without extension
+        measurement_period (str): The measurement period (e.g., 'M2')
+        model (str): The model name (e.g., 'devtooling__arcturus')
     """
     # Ensure all necessary directories exist
     ensure_directories(measurement_period)
-
-    # Get paths from config
-    weights_path = get_model_yaml_path(measurement_period, model_yaml)
-    output_path = get_output_path(measurement_period, model_yaml)
-
-    # Load YAML configuration
-    with open(weights_path, 'r') as f:
-        config = yaml.safe_load(f)
     
-    # Initialize allocation configuration from YAML
-    alloc = AllocationConfig(**config['allocation'])
-
-    # Load model configuration and data
+    # Get paths from config
+    weights_path = get_model_yaml_path(measurement_period, model)
+    output_path = get_output_path(measurement_period, model)
+    
+    # Load configuration and data
     ds, sim_cfg = load_config(weights_path)
     data = load_data(ds)
-
+    
     # Run analysis
     calculator = DevtoolingCalculator(sim_cfg)
-    analysis = calculator.run_analysis(*data)
-
+    analysis = calculator.run_analysis(*data, ds)
+    
     # Extract scores and calculate rewards
     scores = (
         analysis['devtooling_project_results']
@@ -62,9 +55,16 @@ def process_scores(measurement_period: str, model_yaml: str):
         ['v_aggregated']
         .sort_values(ascending=False)
     )
+    
+    # Initialize allocation configuration from YAML
+    with open(weights_path, 'r') as f:
+        config = yaml.safe_load(f)
+    alloc = AllocationConfig(**config['allocation'])
+    
+    # Calculate rewards
     rewards = allocate_with_constraints(scores, alloc, print_results=False)
     rewards.name = 'op_reward'
-
+    
     # Create combined dataframe with scores and rewards
     df_scores_rewards = pd.concat([scores.to_frame('weighted_score'), rewards], axis=1)
     
