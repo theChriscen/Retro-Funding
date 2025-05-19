@@ -1,42 +1,36 @@
-# Change Log
+# Changelog
 
 All notable changes to algorithms, weights, and underlying OSO models will be documented here.
 
 ## [M3] - 2025-05-19
 
 ### Added
-
 - Generated utility labels for all devtooling projects.
-- `utility_weights` parameter to `devtooling__arcturus.yaml` to control the weights of utility labels.
-- World Verified Users to `qualified_addresses_monthly` metric in `onchain__goldilocks.yaml`.
+- Added `utility_weights` parameter to `devtooling__arcturus.yaml` to control utility label weights.
+- Included World Verified Users in the `qualified_addresses_monthly` metric within `onchain__goldilocks.yaml`.
 
 ### Changed
-
-- `link_type_weights` for `package_dependency` have been reduced from 3.0 to 1.5 in `devtooling__arcturus.yaml` as packages also receive high utility weightings.
-- `percentile_cap` in `onchain__goldilocks.yaml` has been increased from 97 to 98.
+- Reduced `link_type_weights` for `package_dependency` from 3.0 to 1.5 in `devtooling__arcturus.yaml` to reflect high utility weightings for packages.
+- Increased the `percentile_cap` in `onchain__goldilocks.yaml` from 97 to 98.
 
 ### Fixed
-
-- OSO-side logic for building the developer graph for projects that have onchain activity tied to contracts in a sepearate GitHub organization. Now, developers that are associated with the onchain project do not receive a link to the devtooling project.
-- OSO-side handling for projects that share a root deployer but have contracts spread over more than one project.
-- One case where a DefiLlama slug was misattributed to a project.
+- Corrected OSO-side logic for building the developer graph: developers tied to onchain contracts in separate GitHub organizations no longer receive links to devtooling projects.
+- Improved handling of projects that share a root deployer but deploy contracts across multiple repositories.
+- Fixed one case of a DefiLlama slug being misattributed to the wrong project.
 
 ## [M2] - 2025-04-28
 
 ### Added
-
-- New onchain builder weighting metrics options, eg, World Verified Users and Account Abstraction UserOps. Note: these are not yet given any explicit weighting in the M2 algorithms.
-- World Chain specific event handling (as UserOps).
-- Various utility scripts for fetching data from OSO and generating results.
-- Results for each round are serialized to JSON and saved in the appropriate `data/outputs` directory.
+- Introduced new onchain-builder weighting metrics options (e.g., World Verified Users and Account Abstraction UserOps); these currently have no explicit weightings in M2.
+- Added Worldchain-specific event handling for UserOps.
+- Developed utility scripts for fetching OSO data and generating algorithm results.
+- Configured serialization of each round’s results to JSON under `data/outputs`.
 
 ### Changed
-
-- Budget allocation settings are now handled in the `allocation` section of each algorithm config file.
-- Amortized contract invocations include all relevant account abstraction events
-- Amortization logic for contract interactions and gas fees has been simplified; now a project will be credited with the same amount of impact regardless of how many other Retro Funded projects are invoked in the same transaction.
+- Moved budget allocation settings into the `allocation` section of each algorithm config file.
+- Updated amortized contract invocations to include all relevant account abstraction events.
+- Simplified amortization logic so that projects receive equal credit per invocation, regardless of how many other Retro Funded projects are invoked in the same transaction.
 
 ### Fixed
-
-- Manually link several GitHub repos to their corresponding devtooling packages on NPM.
-- OSO-side handling for creating distinct collections of projects for each measurement period (based on application submission date).
+- Manually linked several GitHub repositories to their corresponding NPM devtooling packages.
+- Ensured distinct collections of projects per measurement period based on application submission dates.
