@@ -124,6 +124,8 @@ Links between nodes, i.e., **edges**, are derived from the following relationshi
    - Whenever a developer (from the set recognized above) engages with a devtooling project (commits, PRs, issues, forks, stars, or comments), we add an edge from that developer to the devtooling project.
    - As with onchain commits, these events are grouped by month—1 PR or 10 PRs is treated as “the developer engaged in that month.”
 
+Starting from the third measurement period, we also apply a configurable `utility_weights` parameter to devtooling project links, based on each project's assigned utility label (e.g., Core Protocol Interfaces, Development Frameworks, Data Indexing & Analytics, etc.). Utility labels are assigned via the Devtooling Labels experiment, which clusters and categorizes projects as described in the [Devtooling Labels Experiment](https://github.com/opensource-observer/insights/tree/main/experiments/devtooling_labels).
+
 <details>
 <summary>Which types of packages are considered?</summary>
 
@@ -201,7 +203,6 @@ Pretrust metrics are applied to each node in the graph:
 
    - Pretrust is derived from the total number of published packages and GitHub metrics (stars, forks).
    - The importance of each metric is multiplied by algorithm-specific weights.
-   - We also apply a configurable `utility_weights` parameter to devtooling project pretrust scores, based on each project's assigned utility label (e.g., performance, debugging, documentation). Utility labels are assigned via the Devtooling Labels experiment, which clusters and categorizes projects as described in the [Devtooling Labels Experiment](https://github.com/opensource-observer/insights/tree/main/experiments/devtooling_labels).
    - The same procedure of log-scaling, min-max normalization, weighting, and final normalization ensures the total across devtooling projects = 1.
 
 3. **Developer Reputation**
