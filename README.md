@@ -152,8 +152,8 @@ These settings control:
 To run the simulation with a specific model and measurement period:
 
 ```bash
-python eval-algos/S7/utils/process_onchain_builders.py --measurement-period M2 --model onchain__goldilocks
-python eval-algos/S7/utils/process_devtools.py --measurement-period M2 --model devtooling__arcturus
+python eval-algos/S7/utils/process_onchain_builders.py --measurement-period M3 --model onchain__goldilocks
+python eval-algos/S7/utils/process_devtools.py --measurement-period M3 --model devtooling__arcturus
 ```
 
 This will:
