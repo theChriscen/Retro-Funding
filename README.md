@@ -157,9 +157,9 @@ python eval-algos/S7/utils/process_devtools.py --measurement-period M3 --model d
 ```
 
 This will:
-1. Load the model configuration from `results/S7/M2/weights/<model>.yaml`
+1. Load the model configuration from `results/S7/M3/weights/<model>.yaml`
 2. Process the data according to the model's algorithm
-3. Save the results to `results/S7/M2/outputs/<model>_rewards.csv`
+3. Save the results to `results/S7/M3/outputs/<model>_rewards.csv`
 
 ### Consolidating and Serializing Results
 
@@ -170,21 +170,21 @@ After running the simulation pipeline, you can consolidate and serialize the res
 The `consolidate_rewards.py` script combines all rewards files from a measurement period into a single CSV file:
 
 ```bash
-python eval-algos/S7/utils/consolidate_rewards.py --measurement-period M2
+python eval-algos/S7/utils/consolidate_rewards.py --measurement-period M3
 ```
 
 This will:
-1. Find all rewards CSV files in the `results/S7/M2/outputs/` directory
+1. Find all rewards CSV files in the `results/S7/M3/outputs/` directory
 2. Standardize the format (ensuring consistent column names)
 3. Add `round_id` ('7' for devtooling, '8' for onchain) and `filename` columns
-4. Save the consolidated data to `results/S7/M2/outputs/M2_consolidated_rewards.csv`
+4. Save the consolidated data to `results/S7/M3/outputs/M3_consolidated_rewards.csv`
 
 #### Serializing Results
 
 The `serialize.py` script creates JSON files that combine metrics and rewards data:
 
 ```bash
-python eval-algos/S7/utils/serialize.py --measurement-period M2
+python eval-algos/S7/utils/serialize.py --measurement-period M3
 ```
 
 This will:
