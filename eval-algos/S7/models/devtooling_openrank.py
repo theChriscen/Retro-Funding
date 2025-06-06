@@ -33,7 +33,8 @@ class SimulationConfig:
     """
     Contains simulation parameters for the trust score computation.
     """
-    alpha: float
+    alpha_onchain: float
+    alpha_devtooling: float
     onchain_project_pretrust_weights: Dict[str, float]
     devtooling_project_pretrust_weights: Dict[str, float]
     link_type_time_decays: Dict[str, float]
@@ -41,6 +42,30 @@ class SimulationConfig:
     event_type_weights: Dict[str, float]
     utility_weights: Dict[str, float]
     eligibility_thresholds: Dict[str, int]
+
+    @classmethod
+    def from_dict(cls, config_dict: Dict[str, Any]) -> 'SimulationConfig':
+        """
+        Creates a SimulationConfig instance from a dictionary, handling backwards compatibility.
+        """
+        sim_config = config_dict.get('simulation', {})
+        
+        # Handle backwards compatibility for alpha
+        alpha = sim_config.get('alpha', 0.5)
+        alpha_onchain = sim_config.get('alpha_onchain', alpha)
+        alpha_devtooling = sim_config.get('alpha_devtooling', alpha)
+        
+        return cls(
+            alpha_onchain=alpha_onchain,
+            alpha_devtooling=alpha_devtooling,
+            onchain_project_pretrust_weights=sim_config.get('onchain_project_pretrust_weights', {}),
+            devtooling_project_pretrust_weights=sim_config.get('devtooling_project_pretrust_weights', {}),
+            link_type_time_decays=sim_config.get('link_type_time_decays', {}),
+            link_type_weights=sim_config.get('link_type_weights', {}),
+            event_type_weights=sim_config.get('event_type_weights', {}),
+            utility_weights=sim_config.get('utility_weights', {}),
+            eligibility_thresholds=sim_config.get('eligibility_thresholds', {})
+        )
 
 
 # ------------------------------------------------------------------------
@@ -217,12 +242,14 @@ class DevtoolingCalculator:
         """
         df_onchain = self.analysis['onchain_projects'].copy()
         df_onchain.rename(columns={'project_id': 'i'}, inplace=True)
+        
         wts = {k.lower(): v for k, v in self.config.onchain_project_pretrust_weights.items()}
         df_onchain['v'] = 0.0
         for col, weight in wts.items():
             if col in df_onchain.columns:
                 df_onchain[col] = self._minmax_scale(np.log1p(df_onchain[col]))
                 df_onchain['v'] += df_onchain[col] * weight
+        
         onchain_total = df_onchain['v'].sum()
         df_onchain['v'] /= onchain_total
         self.analysis['onchain_projects_pretrust_scores'] = df_onchain
@@ -232,7 +259,7 @@ class DevtoolingCalculator:
     # --------------------------------------------------------------------
     def _compute_devtooling_project_pretrust(self) -> None:
         """
-        Calculates pretrust scores for devtooling projects using GitHub metrics.
+        Calculates pretrust scores for devtooling projects using GitHub metrics and graph-based metrics.
         Applies log scaling and min-max normalization, then combines metrics with configured weights.
         
         Output is stored in:
@@ -240,12 +267,25 @@ class DevtoolingCalculator:
         """
         df_devtooling = self.analysis['devtooling_projects'].copy()
         df_devtooling.rename(columns={'project_id': 'i'}, inplace=True)
+        
+        # Calculate graph-based metrics
+        df_edges = self.analysis['unweighted_edges']
+        
+        # Calculate package connections
+        package_connections = df_edges[df_edges['link_type'] == 'PACKAGE_DEPENDENCY'].groupby('j').size()
+        df_devtooling['num_package_connections'] = df_devtooling['i'].map(package_connections).fillna(0)
+        
+        # Calculate developer connections
+        developer_connections = df_edges[df_edges['link_type'] == 'DEVELOPER_TO_DEVTOOLING_PROJECT'].groupby('j').size()
+        df_devtooling['num_developer_connections'] = df_devtooling['i'].map(developer_connections).fillna(0)
+        
         wts = self.config.devtooling_project_pretrust_weights
         df_devtooling['v'] = 0.0
         for col, weight in wts.items():
             if col in df_devtooling.columns:
                 df_devtooling[col] = self._minmax_scale(np.log1p(df_devtooling[col]))
                 df_devtooling['v'] += df_devtooling[col] * weight
+        
         devtooling_total = df_devtooling['v'].sum()
         df_devtooling['v'] /= devtooling_total
         self.analysis['devtooling_projects_pretrust_scores'] = df_devtooling
@@ -369,9 +409,9 @@ class DevtoolingCalculator:
         Raises:
             ValueError: If no edge records or pretrust scores are found.
         """
-        alpha = self.config.alpha
-        et = EigenTrust(alpha=alpha)
-    
+        et_onchain = EigenTrust(alpha=self.config.alpha_onchain)
+        et_devtooling = EigenTrust(alpha=self.config.alpha_devtooling)
+
         # Get pretrust scores
         pretrust_list = []
         onchain = self.analysis.get('onchain_projects_pretrust_scores', pd.DataFrame())
@@ -396,7 +436,7 @@ class DevtoolingCalculator:
             for _, row in df_edges.iterrows()
             if row['link_type'] == 'PACKAGE_DEPENDENCY'
         ]
-        package_scores = et.run_eigentrust(package_edge_records, pretrust_list)
+        package_scores = et_onchain.run_eigentrust(package_edge_records, pretrust_list)
         df_package_scores = pd.DataFrame(package_scores, columns=['i', 'v'])
         df_package_scores = df_package_scores[df_package_scores['i'].isin(devtooling_ids)]
         df_package_scores['v'] = df_package_scores['v'] / df_package_scores['v'].sum()
@@ -408,7 +448,7 @@ class DevtoolingCalculator:
             for _, row in df_edges.iterrows()
             if row['link_type'] in ['ONCHAIN_PROJECT_TO_DEVELOPER', 'DEVELOPER_TO_DEVTOOLING_PROJECT']
         ]
-        developer_scores = et.run_eigentrust(developer_edge_records, pretrust_list)
+        developer_scores = et_devtooling.run_eigentrust(developer_edge_records, pretrust_list)
         df_developer_scores = pd.DataFrame(developer_scores, columns=['i', 'v'])
         df_developer_scores = df_developer_scores[df_developer_scores['i'].isin(devtooling_ids)]
         df_developer_scores['v'] = df_developer_scores['v'] / df_developer_scores['v'].sum()
@@ -598,18 +638,7 @@ def load_config(config_path: str) -> Tuple[DataSnapshot, SimulationConfig]:
         utility_labels_file=config['data_snapshot'].get('utility_labels')
     )
 
-    sim_config = config.get('simulation', {})
-    simulation_config = SimulationConfig(
-        alpha=sim_config.get('alpha', 0.5),
-        onchain_project_pretrust_weights=sim_config.get('onchain_project_pretrust_weights', {}),
-        devtooling_project_pretrust_weights=sim_config.get('devtooling_project_pretrust_weights', {}),
-        link_type_time_decays=sim_config.get('link_type_time_decays', {}),
-        link_type_weights=sim_config.get('link_type_weights', {}),
-        event_type_weights=sim_config.get('event_type_weights', {}),
-        utility_weights=sim_config.get('utility_weights', {}),
-        eligibility_thresholds=sim_config.get('eligibility_thresholds', {})
-    )
-
+    simulation_config = SimulationConfig.from_dict(config)
     return data_snapshot, simulation_config
 
 
