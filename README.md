@@ -29,7 +29,7 @@ poetry env activate
 Then, you can execute the commands below to test the simulation pipeline. For example:
 
 ```bash
-python eval-algos/S7/utils/process_onchain_builders.py --measurement-period M1 --model onchain__goldilocks
+python eval-algos/S7/utils/process_onchain_builders.py --measurement-period M4 --model onchain__goldilocks
 ```
 
 ## Simulation Pipeline
@@ -89,10 +89,10 @@ To fetch the latest data for a specific measurement period, you need to:
 
 2. Run the fetch_data.py script with the desired measurement period. For example:
    ```bash
-   python eval-algos/S7/utils/fetch_data.py --measurement-period M2
+   python eval-algos/S7/utils/fetch_data.py --measurement-period M4
    ```
 
-This will download the data from OSO and save it to the `results/S7/M2/data/` directory. The script will fetch all the necessary CSV files for both the onchain builders and devtooling rounds.
+This will download the data from OSO and save it to the `results/S7/M4/data/` directory. The script will fetch all the necessary CSV files for both the onchain builders and devtooling rounds.
 
 ### Weights
 
@@ -102,14 +102,14 @@ Be sure to use the right data snapshot and simulation period for your simulation
 
 ```yaml
 data_snapshot:
-  data_dir: 'results/S7/M1/data/'
+  data_dir: 'results/S7/M4/data/'
   projects_file: 'onchain__project_metadata.csv'
   metrics_file: 'onchain__metrics_by_project.csv'
 
 simulation:
   periods:
-    previous: 'Jan 2025'
-    current: 'Feb 2025'
+    previous: 'Apr 2025'
+    current: 'May 2025'
 ```
 
 You can also modify the weights for each model as you see fit. Note that new metrics may be added throughout the season. For example, the `onchain__metrics_by_project.csv` in M2 includes new metrics related to Worldchain activity.
@@ -120,7 +120,8 @@ You can also modify the weights for each model as you see fit. Note that new met
     gas_fees_monthly: 0.25
     average_tvl_monthly: 0.25
     active_farcaster_users_monthly: 0.25
-
+    
+    qualified_addresses_monthly: 0.0
     active_addresses_monthly: 0.0
     contract_invocations_monthly: 0.0
   
@@ -152,14 +153,14 @@ These settings control:
 To run the simulation with a specific model and measurement period:
 
 ```bash
-python eval-algos/S7/utils/process_onchain_builders.py --measurement-period M3 --model onchain__goldilocks
-python eval-algos/S7/utils/process_devtools.py --measurement-period M3 --model devtooling__arcturus
+python eval-algos/S7/utils/process_onchain_builders.py --measurement-period M4 --model onchain__goldilocks
+python eval-algos/S7/utils/process_devtools.py --measurement-period M4 --model devtooling__arcturus
 ```
 
 This will:
-1. Load the model configuration from `results/S7/M3/weights/<model>.yaml`
+1. Load the model configuration from `results/S7/M4/weights/<model>.yaml`
 2. Process the data according to the model's algorithm
-3. Save the results to `results/S7/M3/outputs/<model>_rewards.csv`
+3. Save the results to `results/S7/M4/outputs/<model>_rewards.csv`
 
 ### Consolidating and Serializing Results
 
@@ -170,21 +171,21 @@ After running the simulation pipeline, you can consolidate and serialize the res
 The `consolidate_rewards.py` script combines all rewards files from a measurement period into a single CSV file:
 
 ```bash
-python eval-algos/S7/utils/consolidate_rewards.py --measurement-period M3
+python eval-algos/S7/utils/consolidate_rewards.py --measurement-period M4
 ```
 
 This will:
-1. Find all rewards CSV files in the `results/S7/M3/outputs/` directory
+1. Find all rewards CSV files in the `results/S7/M4/outputs/` directory
 2. Standardize the format (ensuring consistent column names)
 3. Add `round_id` ('7' for devtooling, '8' for onchain) and `filename` columns
-4. Save the consolidated data to `results/S7/M3/outputs/M3_consolidated_rewards.csv`
+4. Save the consolidated data to `results/S7/M4/outputs/M4_consolidated_rewards.csv`
 
 #### Serializing Results
 
 The `serialize.py` script creates JSON files that combine metrics and rewards data:
 
 ```bash
-python eval-algos/S7/utils/serialize.py --measurement-period M3
+python eval-algos/S7/utils/serialize.py --measurement-period M4
 ```
 
 This will:
